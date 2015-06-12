@@ -1,0 +1,105 @@
+# The MIT License (MIT)
+# 
+# Copyright (c) 2015 Siva Chandra
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+import gdb
+import lldb
+
+def type_summary_function(sbvalue, internal_dict):
+    for p in gdb.pretty_printers:
+        pp = p(gdb.Value(sbvalue))
+        if pp:
+            return str(pp.to_string())
+    raise RuntimeError('Could not find a pretty printer!')
+
+
+class GdbPrinterSynthProvider(object):
+    def __init__(self, sbvalue, internal_dict):
+        self._sbvalue = sbvalue
+        self._pp = None
+        self._children = []
+        for p in gdb.pretty_printers:
+            self._pp = p(gdb.Value(self._sbvalue))
+            if self._pp:
+                break
+        if not self._pp:
+            raise RuntimeError('Could not find a pretty printer!')
+
+    def num_children(self):
+        if hasattr(self._pp, 'children') and (not self._children):
+            children = self._pp.children()
+            for c in children:
+                self._children.append(c)
+        return len(self._children)
+
+    def get_child_index(self, name):
+        try:
+            return int(name.lstrip('[').rstrip(']'))
+        except:
+            return -1
+
+    def get_child_at_index(self, index):
+        assert hasattr(self._pp, 'children')
+        if not self._children:
+            children = self._pp.children()
+            for c in children:
+                self._children.append(c)
+        if index < len(self._children):
+            c = self._children[index]
+            if not isinstance(c[1], lldb.SBValue):
+                data = lldb.SBData()
+                data.SetDataFromUInt64Array([int(c[1])])
+                return self._sbvalue.CreateValueFromData(
+                    c[0], data, lldb.target.FindFirstType('int'))
+            else:
+                return c[1].sbvalue().CreateChildAtOffset(
+                    c[0], 0, sbvalue.GetType())
+            return sbvalue
+        raise IndexError('Child not present at given index.')
+
+    def update(self):
+        self._children = []
+
+    def has_children(self):
+        return hasattr(self._pp, 'children')
+
+    def get_value(self):
+        return self._sbvalue
+
+
+def register_pretty_printer(obj, printer):
+    gdb.pretty_printers.append(printer)
+    # TODO: Replace lldb.debugger.HandleCommand with proper SB API to
+    # add type summaries and synthetic child providers.
+    for subprinter in printer.subprinters:
+        # TODO: Uncomment the lines below which add type summaries
+        # after fixing the summaries issue in presence of synthesized
+        # children.
+        # lldb.debugger.HandleCommand(
+        #     'type summary add -w %s ' 
+        #     '-F gdb.printing.type_summary_function '
+        #     '-x "%s"' % 
+        #     (printer.name, ('^%s<.+>(( )?&)?$' % subprinter.name)))
+        lldb.debugger.HandleCommand(
+            'type synthetic add -w %s '
+            '-l gdb.printing.GdbPrinterSynthProvider '
+            '-x "%s"' %
+            (printer.name, ('^%s<.+>(( )?&)?$' % subprinter.name)))
