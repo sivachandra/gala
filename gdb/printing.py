@@ -25,7 +25,7 @@ import lldb
 
 def type_summary_function(sbvalue, internal_dict):
     for p in gdb.pretty_printers:
-        pp = p(gdb.Value(sbvalue))
+        pp = p(gdb.Value(sbvalue.GetNonSyntheticValue()))
         if pp:
             return str(pp.to_string())
     raise RuntimeError('Could not find a pretty printer!')
@@ -64,14 +64,14 @@ class GdbPrinterSynthProvider(object):
                 self._children.append(c)
         if index < len(self._children):
             c = self._children[index]
-            if not isinstance(c[1], lldb.SBValue):
+            if not isinstance(c[1], gdb.Value):
                 data = lldb.SBData()
                 data.SetDataFromUInt64Array([int(c[1])])
                 return self._sbvalue.CreateValueFromData(
                     c[0], data, lldb.target.FindFirstType('int'))
             else:
                 return c[1].sbvalue().CreateChildAtOffset(
-                    c[0], 0, sbvalue.GetType())
+                    c[0], 0, c[1].sbvalue().GetType())
             return sbvalue
         raise IndexError('Child not present at given index.')
 
@@ -87,19 +87,14 @@ class GdbPrinterSynthProvider(object):
 
 def register_pretty_printer(obj, printer):
     gdb.pretty_printers.append(printer)
-    # TODO: Replace lldb.debugger.HandleCommand with proper SB API to
-    # add type summaries and synthetic child providers.
-    for subprinter in printer.subprinters:
-        # TODO: Uncomment the lines below which add type summaries
-        # after fixing the summaries issue in presence of synthesized
-        # children.
-        # lldb.debugger.HandleCommand(
-        #     'type summary add -w %s ' 
-        #     '-F gdb.printing.type_summary_function '
-        #     '-x "%s"' % 
-        #     (printer.name, ('^%s<.+>(( )?&)?$' % subprinter.name)))
-        lldb.debugger.HandleCommand(
-            'type synthetic add -w %s '
-            '-l gdb.printing.GdbPrinterSynthProvider '
-            '-x "%s"' %
-            (printer.name, ('^%s<.+>(( )?&)?$' % subprinter.name)))
+    cat = lldb.debugger.CreateCategory(printer.name)
+    for sp in printer.subprinters:
+        cat.AddTypeSummary(
+            lldb.SBTypeNameSpecifier('^%s<.+>(( )?&)?$' % sp.name, True),
+            lldb.SBTypeSummary.CreateWithFunctionName(
+                'gdb.printing.type_summary_function'))
+        cat.AddTypeSynthetic(
+            lldb.SBTypeNameSpecifier('^%s<.+>(( )?&)?$' % sp.name, True),
+            lldb.SBTypeSynthetic.CreateWithClassName(
+                'gdb.printing.GdbPrinterSynthProvider'))
+    cat.SetEnabled(True)
