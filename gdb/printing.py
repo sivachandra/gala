@@ -27,7 +27,10 @@ def type_summary_function(sbvalue, internal_dict):
     for p in gdb.pretty_printers:
         pp = p(gdb.Value(sbvalue.GetNonSyntheticValue()))
         if pp:
-            return str(pp.to_string())
+            summary = str(pp.to_string())
+            if pp.display_hint() == 'string':
+                summary = '"%s"' % summary
+            return summary
     raise RuntimeError('Could not find a pretty printer!')
 
 
@@ -89,12 +92,23 @@ def register_pretty_printer(obj, printer):
     gdb.pretty_printers.append(printer)
     cat = lldb.debugger.CreateCategory(printer.name)
     for sp in printer.subprinters:
+        # Cascade goes through typedefs etc.
+        children_options = lldb.eTypeOptionCascade
+        summary_options = lldb.eTypeOptionCascade
+        if not hasattr(sp, 'children'):
+            # If there is no 'children' method to a GDB pretty printer,
+            # then hide children.
+            summary_options |= lldb.eTypeOptionHideChildren
         cat.AddTypeSummary(
             lldb.SBTypeNameSpecifier('^%s<.+>(( )?&)?$' % sp.name, True),
             lldb.SBTypeSummary.CreateWithFunctionName(
-                'gdb.printing.type_summary_function'))
-        cat.AddTypeSynthetic(
-            lldb.SBTypeNameSpecifier('^%s<.+>(( )?&)?$' % sp.name, True),
-            lldb.SBTypeSynthetic.CreateWithClassName(
-                'gdb.printing.GdbPrinterSynthProvider'))
+                'gdb.printing.type_summary_function', summary_options))
+        if hasattr(sp, 'children'):
+            # Add synthetic children only if the GDB pretty printer has the
+            # children method.
+            cat.AddTypeSynthetic(
+                lldb.SBTypeNameSpecifier('^%s<.+>(( )?&)?$' % sp.name, True),
+                lldb.SBTypeSynthetic.CreateWithClassName(
+                    'gdb.printing.GdbPrinterSynthProvider',
+                    children_options))
     cat.SetEnabled(True)
