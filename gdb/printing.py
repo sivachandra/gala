@@ -90,6 +90,10 @@ class GdbPrinterSynthProvider(object):
 
 def register_pretty_printer(obj, printer):
     gdb.pretty_printers.append(printer)
+    if lldb.debugger.GetCategory(printer.name).IsValid():
+        print ('WARNING: A type category with name "%s" already exists.' %
+               printer.name)
+        return
     cat = lldb.debugger.CreateCategory(printer.name)
     for sp in printer.subprinters:
         # Cascade goes through typedefs etc.
