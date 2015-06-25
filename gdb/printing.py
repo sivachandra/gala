@@ -28,7 +28,7 @@ def type_summary_function(sbvalue, internal_dict):
         pp = p(gdb.Value(sbvalue.GetNonSyntheticValue()))
         if pp:
             summary = str(pp.to_string())
-            if pp.display_hint() == 'string':
+            if hasattr(pp, 'display_hint') and pp.display_hint() == 'string':
                 summary = '"%s"' % summary
             return summary
     raise RuntimeError('Could not find a pretty printer!')
@@ -54,10 +54,13 @@ class GdbPrinterSynthProvider(object):
         return len(self._children)
 
     def get_child_index(self, name):
-        try:
-            return int(name.lstrip('[').rstrip(']'))
-        except:
-            return -1
+        if (hasattr(self._pp, 'display_hint') and
+            self._pp.display_hint() == 'array'):
+            try:
+                return int(name.lstrip('[').rstrip(']'))
+            except:
+                raise NameError(
+                    'Value does not have a child with name "%s".' % name)
 
     def get_child_at_index(self, index):
         assert hasattr(self._pp, 'children')
