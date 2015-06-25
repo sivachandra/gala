@@ -96,23 +96,13 @@ def register_pretty_printer(obj, printer):
         return
     cat = lldb.debugger.CreateCategory(printer.name)
     for sp in printer.subprinters:
-        # Cascade goes through typedefs etc.
-        children_options = lldb.eTypeOptionCascade
-        summary_options = lldb.eTypeOptionCascade
-        if not hasattr(sp, 'children'):
-            # If there is no 'children' method to a GDB pretty printer,
-            # then hide children.
-            summary_options |= lldb.eTypeOptionHideChildren
         cat.AddTypeSummary(
             lldb.SBTypeNameSpecifier('^%s<.+>(( )?&)?$' % sp.name, True),
             lldb.SBTypeSummary.CreateWithFunctionName(
-                'gdb.printing.type_summary_function', summary_options))
-        if hasattr(sp, 'children'):
-            # Add synthetic children only if the GDB pretty printer has the
-            # children method.
-            cat.AddTypeSynthetic(
-                lldb.SBTypeNameSpecifier('^%s<.+>(( )?&)?$' % sp.name, True),
-                lldb.SBTypeSynthetic.CreateWithClassName(
-                    'gdb.printing.GdbPrinterSynthProvider',
-                    children_options))
+                'gdb.printing.type_summary_function', lldb.eTypeOptionCascade))
+        cat.AddTypeSynthetic(
+            lldb.SBTypeNameSpecifier('^%s<.+>(( )?&)?$' % sp.name, True),
+            lldb.SBTypeSynthetic.CreateWithClassName(
+                'gdb.printing.GdbPrinterSynthProvider',
+                lldb.eTypeOptionCascade))
     cat.SetEnabled(True)
