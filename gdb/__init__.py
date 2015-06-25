@@ -339,6 +339,9 @@ class Value(object):
     def __add__(self, number):
         return self._sum(number)
 
+    def __radd__(self, number):
+        return self._sum(number)
+
     def __sub__(self, number):
         sbtype = self._sbvalue_object.GetType()
         sbtype = Type(sbtype).strip_typedefs().sbtype()
@@ -357,6 +360,9 @@ class Value(object):
         raise TypeError('Cannot perform arithmetic operations on objects'
                         'of type "%s".' % self._sbvalue_object.GetType())
 
+    def __rsub__(self, number):
+        return number - self.__int__()
+
     def __int__(self):
         sbtype = self._sbvalue_object.GetType()
         sbtype = Type(sbtype).strip_typedefs().sbtype()
@@ -371,6 +377,17 @@ class Value(object):
                 'Comparison of non-integral/non-pointer values is not '
                 'implemented')
         return intval
+
+    def __nonzero__(self):
+        sbtype = self._sbvalue_object.GetType()
+        sbtype = Type(sbtype).strip_typedefs().sbtype()
+        type_class = sbtype.GetTypeClass()
+        if ((type_class == lldb.eTypeClassPointer) or
+            (type_class in BASIC_UNSIGNED_INTEGER_TYPES) or
+            (type_class in BASIC_UNSIGNED_INTEGER_TYPES)):
+            return self.__int__() != 0
+        else:
+            return True
 
     def _cmp(self, other):
         if self.__int__() == int(other):
