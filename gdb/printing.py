@@ -23,11 +23,24 @@
 import gdb
 import lldb
 
+import traceback
+
+def print_exc(err_msg):
+    print '<<< %s >>>' % err_msg
+    traceback.print_exc()
+    print '<<< --- >>>'
+
+
 def type_summary_function(sbvalue, internal_dict):
     for p in gdb.pretty_printers:
         pp = p(gdb.Value(sbvalue.GetNonSyntheticValue()))
         if pp:
-            summary = str(pp.to_string())
+            try:
+                summary = str(pp.to_string())
+            except:
+                print_exc('Error calling "to_string" method of a '
+                          'GDB pretty printer.')
+                summary = ''
             if hasattr(pp, 'display_hint') and pp.display_hint() == 'string':
                 summary = '"%s"' % summary
             return summary
@@ -40,17 +53,33 @@ class GdbPrinterSynthProvider(object):
         self._pp = None
         self._children = []
         for p in gdb.pretty_printers:
-            self._pp = p(gdb.Value(self._sbvalue))
+            try:
+                self._pp = p(gdb.Value(self._sbvalue))
+            except:
+                print_exc('Error calling into GDB printer "%s".' % p.name)
             if self._pp:
                 break
         if not self._pp:
             raise RuntimeError('Could not find a pretty printer!')
 
-    def num_children(self):
+    def _get_children(self):
+        if len(self._children) > 0:
+            return
         if hasattr(self._pp, 'children') and (not self._children):
-            children = self._pp.children()
-            for c in children:
-                self._children.append(c)
+            try:
+                children = self._pp.children()
+            except:
+                print_exc('Error calling "children" method of a '
+                          'GDB pretty printer.')
+                return
+            try:
+                for c in children:
+                    self._children.append(c)
+            except:
+                print_exc('Error iterating over pretty printer children.')
+
+    def num_children(self):
+        self._get_children()
         return len(self._children)
 
     def get_child_index(self, name):
@@ -64,10 +93,7 @@ class GdbPrinterSynthProvider(object):
 
     def get_child_at_index(self, index):
         assert hasattr(self._pp, 'children')
-        if not self._children:
-            children = self._pp.children()
-            for c in children:
-                self._children.append(c)
+        self._get_children()
         if index < len(self._children):
             c = self._children[index]
             if not isinstance(c[1], gdb.Value):
