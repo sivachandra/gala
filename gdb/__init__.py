@@ -376,7 +376,7 @@ class Value(object):
             return NotImplementedError(
                 'Comparison of non-integral/non-pointer values is not '
                 'implemented')
-        return intval
+        return int(intval)
 
     def __nonzero__(self):
         sbtype = self._sbvalue_object.GetType()
