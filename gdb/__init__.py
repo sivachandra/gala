@@ -312,6 +312,19 @@ class Value(object):
         return Value(self._sbvalue_object.CreateValueFromAddress(
              "", new_addr, elem_sbtype))
 
+    def _as_integer(self):
+        sbtype, type_class = self._stripped_sbtype()
+        if ((type_class == lldb.eTypeClassPointer) or
+            (type_class in BASIC_UNSIGNED_INTEGER_TYPES)):
+            intval = self._sbvalue_object.GetValueAsUnsigned()
+        elif type_class in BASIC_SIGNED_INTEGER_TYPES:
+            intval = self._sbvalue_object.GetValueAsSigned()
+        else:
+            return NotImplementedError(
+                'Comparison of non-integral/non-pointer values is not '
+                'implemented')
+        return intval
+
     def _sum(self, number):
         # TODO: Make this method more general. It currently only supports
         # int or long second operand.
@@ -365,17 +378,10 @@ class Value(object):
         return number - self.__int__()
 
     def __int__(self):
-        sbtype, type_class = self._stripped_sbtype()
-        if ((type_class == lldb.eTypeClassPointer) or
-            (type_class in BASIC_UNSIGNED_INTEGER_TYPES)):
-            intval = self._sbvalue_object.GetValueAsUnsigned()
-        elif type_class in BASIC_SIGNED_INTEGER_TYPES:
-            intval = self._sbvalue_object.GetValueAsSigned()
-        else:
-            return NotImplementedError(
-                'Comparison of non-integral/non-pointer values is not '
-                'implemented')
-        return int(intval)
+        return int(self._as_integer())
+
+    def __long__(self):
+        return long(self._as_integer())
 
     def __nonzero__(self):
         sbtype, type_class = self._stripped_sbtype()
