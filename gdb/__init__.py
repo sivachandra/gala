@@ -268,6 +268,12 @@ class Value(object):
     def sbvalue(self):
         return self._sbvalue_object
 
+    def _stripped_sbtype(self):
+        sbtype = self._sbvalue_object.GetType()
+        stripped_sbtype = Type(sbtype).strip_typedefs().sbtype()
+        type_class = stripped_sbtype.GetTypeClass()
+        return stripped_sbtype, type_class
+
     def __str__(self):
         return str(self._sbvalue_object)
 
@@ -275,8 +281,7 @@ class Value(object):
         # TODO: Clean this method up and add support to get members from
         # pointers to struct/class values.
         sbtype = self._sbvalue_object.GetType()
-        stripped_sbtype = Type(sbtype).strip_typedefs().sbtype()
-        type_class = stripped_sbtype.GetTypeClass()
+        stripped_sbtype, type_class = self._stripped_sbtype()
         if (type_class == lldb.eTypeClassClass or
             type_class == lldb.eTypeClassStruct or
             type_class == lldb.eTypeClassUnion):
@@ -302,7 +307,7 @@ class Value(object):
             elem_sbtype = self._sbvalue_object.GetType().GetArrayElementType()
         else:
             raise TypeError('Cannot use "[]" operator on values of type "%s".' %
-                            sbtype)
+                            str(sbtype))
         new_addr = addr + index * elem_sbtype.GetByteSize()
         return Value(self._sbvalue_object.CreateValueFromAddress(
              "", new_addr, elem_sbtype))
@@ -314,9 +319,7 @@ class Value(object):
             raise TypeError(
                 'Cannot perform add/sub with "%s" as second operand.',
                 str(type(number)))
-        sbtype = self._sbvalue_object.GetType()
-        sbtype = Type(sbtype).strip_typedefs().sbtype()
-        type_class = sbtype.GetTypeClass()
+        sbtype, type_class = self._stripped_sbtype()
         if sbtype.IsPointerType():
         #if type_class == lldb.eTypeClassPointer:
             addr = self._sbvalue_object.GetValueAsUnsigned()
@@ -343,9 +346,7 @@ class Value(object):
         return self._sum(number)
 
     def __sub__(self, number):
-        sbtype = self._sbvalue_object.GetType()
-        sbtype = Type(sbtype).strip_typedefs().sbtype()
-        type_class = sbtype.GetTypeClass()
+        sbtype, type_class = self._stripped_sbtype()
         if isinstance(number, int) or isinstance(number, long):
             return self._sum(-number)
         elif type_class == lldb.eTypeClassPointer:
@@ -364,9 +365,7 @@ class Value(object):
         return number - self.__int__()
 
     def __int__(self):
-        sbtype = self._sbvalue_object.GetType()
-        sbtype = Type(sbtype).strip_typedefs().sbtype()
-        type_class = sbtype.GetTypeClass()
+        sbtype, type_class = self._stripped_sbtype()
         if ((type_class == lldb.eTypeClassPointer) or
             (type_class in BASIC_UNSIGNED_INTEGER_TYPES)):
             intval = self._sbvalue_object.GetValueAsUnsigned()
@@ -379,9 +378,7 @@ class Value(object):
         return int(intval)
 
     def __nonzero__(self):
-        sbtype = self._sbvalue_object.GetType()
-        sbtype = Type(sbtype).strip_typedefs().sbtype()
-        type_class = sbtype.GetTypeClass()
+        sbtype, type_class = self._stripped_sbtype()
         if ((type_class == lldb.eTypeClassPointer) or
             (type_class in BASIC_UNSIGNED_INTEGER_TYPES) or
             (type_class in BASIC_UNSIGNED_INTEGER_TYPES)):
@@ -500,8 +497,7 @@ class Value(object):
         return Value(self._sbvalue_object.Cast(gdbtype.sbtype()))
 
     def dereference(self):
-        sbtype = self._sbvalue_object.GetType()
-        stripped_sbtype = Type(sbtype).strip_typedefs().sbtype()
+        stripped_sbtype, _ = self._stripped_sbtype()
         stripped_sbval = self._sbvalue_object.Cast(stripped_sbtype)
         return Value(stripped_sbval.Dereference())
 
