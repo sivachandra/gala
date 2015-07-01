@@ -57,6 +57,15 @@ TYPE_CODE_INTERNAL_FUNCTION = 26
 TYPE_CODE_XMETHOD = 27
 
 
+OP_ADD = 0
+OP_SUB = 1
+OP_BITWISE_AND = 2
+OP_BITWISE_OR = 3
+OP_BITWISE_XOR = 4
+OP_LSHIFT = 5
+OP_RSHIFT = 6
+
+
 TYPE_CLASS_TO_TYPE_CODE_MAP = {
     lldb.eTypeClassInvalid: TYPE_CODE_UNDEF,
     lldb.eTypeClassArray: TYPE_CODE_ARRAY,
@@ -137,6 +146,31 @@ BASIC_SIGNED_INTEGER_TYPES = [
 BASIC_FLOAT_TYPES = [
     lldb.eBasicTypeFloat, lldb.eBasicTypeDouble, lldb.eBasicTypeLongDouble
 ]
+
+
+BUILTIN_TYPE_NAME_TO_SBTYPE_MAP = {
+    'char': None,
+    'unsigned char': None,
+    'short': None,
+    'unsigned short': None,
+    'int': None,
+    'unsigned': None,
+    'unsigned int': None,
+    'long': None,
+    'unsigned long': None,
+    'long long': None,
+    'unsigned long long': None,
+    'float': None,
+    'double': None,
+    'long double': None
+}
+
+def get_builtin_sbtype(typename):
+    sbtype = BUILTIN_TYPE_NAME_TO_SBTYPE_MAP.get(typename)
+    if not sbtype:
+        sbtype = lldb.target.FindFirstType(typename)
+        BUILTIN_TYPE_NAME_TO_SBTYPE_MAP[typename] = sbtype
+    return sbtype
 
 
 class EnumField(object):
@@ -274,8 +308,133 @@ class Value(object):
         type_class = stripped_sbtype.GetTypeClass()
         return stripped_sbtype, type_class
 
+    def _as_number(self):
+        sbtype, type_class = self._stripped_sbtype()
+        if ((type_class == lldb.eTypeClassPointer) or
+            (type_class in BASIC_UNSIGNED_INTEGER_TYPES)):
+            numval = self._sbvalue_object.GetValueAsUnsigned()
+        elif type_class in BASIC_SIGNED_INTEGER_TYPES:
+            numval = self._sbvalue_object.GetValueAsSigned()
+        elif type_class in BASIC_FLOAT_TYPES:
+            err = lldb.SBError()
+            if type_class == lldb.eBasicTypeFloat:
+                numval = self._sbvalue_object.GetData().GetFloat(err, 0)
+            elif type_class == lldb.eBasicTypeDouble:
+                numval = self._sbvalue_object.GetData().GetDouble(err, 0)
+            elif type_class == lldb.eBasicTypeLongDouble:
+                numval = self._sbvalue_object.GetData().GetLongDouble(err, 0)
+            else:
+                raise RuntimeError('Something unexpected has happened.')
+            if not err.Success():
+                raise RuntimeError(
+                    'Could not convert float type value to a number:\n%s' %
+                    err.GetCString())
+        else:
+            return TypeError(
+                'Conversion of non-numerical/non-pointer values to numbers is '
+                'not supported.')
+        return numval
+
+    def _binary_op(self, other, op, reverse=False):
+        sbtype, type_class = self._stripped_sbtype()
+        if type_class == lldb.eTypeClassPointer:
+            if not (op == OP_ADD or op == OP_SUB) or reverse:
+                raise TypeError(
+                    'Invalid binary operation on/with pointer value.')
+        if isinstance(other, int) or isinstance(other, long):
+            other_val = other
+            other_sbtype = get_builtin_sbtype('long')
+            other_type_class = lldb.eTypeClassBuiltin
+        elif isinstance(other, float):
+            other_val = other
+            other_sbtype = get_builtin_sbtype('double')
+            other_type_class = lldb.eTypeClassBuiltin
+        elif isinstance(other, Value):
+            other_sbtype, other_type_class = other._stripped_sbtype()
+            if (other_type_class == lldb.eTypeClassPointer and
+                not (type_class == lldb.eTypeClassPointer and op == OP_SUB)):
+                raise TypeError(
+                    'Invalid binary operation on/with pointer value.')
+            other_val = other._as_number()
+        else:
+            raise TypeError('Cannot perform binary operation with/on value '
+                            'of type "%s".' % str(type(other)))
+        if op == OP_BITWISE_AND:
+            res = self._as_number() & other_val
+        elif op == OP_BITWISE_OR:
+            res = self._as_number() | other_val
+        elif op == OP_BITWISE_XOR:
+            res = self._as_number() ^ other_val
+        elif op == OP_ADD:
+            if type_class == lldb.eTypeClassPointer:
+                addr = self._sbvalue_object.GetValueAsUnsigned()
+                new_addr = (addr +
+                            other_val * sbtype.GetPointeeType().GetByteSize())
+                new_sbvalue = self._sbvalue_object.CreateValueFromAddress(
+                    '', new_addr, sbtype.GetPointeeType())
+                return Value(new_sbvalue.AddressOf().Cast(
+                    self._sbvalue_object.GetType()))
+            else:
+                res = self._as_number() + other_val
+        elif op == OP_SUB:
+            if reverse:
+                res = other_val - self._as_number()
+            else:
+                if type_class == lldb.eTypeClassPointer:
+                    if other_type_class == lldb.eTypeClassPointer:
+                        if sbtype != other_sbtype:
+                            raise TypeError('Arithmetic operation on '
+                                            'incompatible pointer types.')
+                        diff = self._as_number() - other_val
+                        return diff / sbtype.GetPointeeType().GetByteSize()
+                    else:
+                        return self._binary_op(- other_val, OP_ADD)
+                else:
+                    res = self._as_number() - other_val
+        elif op == OP_LSHIFT:
+            if reverse:
+                return other_val << self._as_number()
+            else:
+                res = self._as_number() << other_val
+        elif op == OP_RSHIFT:
+            if reverse:
+                return other_val >> self._as_number()
+            else:
+                res = self._as_number() >> other_val
+        else:
+            raise RuntimeError('Unsupported or incorrect binary operation.')
+        data = lldb.SBData()
+        data.SetDataFromUInt64Array([res])
+        return Value(self._sbvalue_object.CreateValueFromData(
+            '', data, self._sbvalue_object.GetType()))
+
+    def _cmp(self, other):
+        if (isinstance(other, int) or isinstance(other, long) or
+            isinstance(other, float)):
+            other_val = other
+        elif isinstance(other, Value):
+            other_val = other._as_number()
+        else:
+            raise TypeError('Comparing incompatible types.')
+        self_val = self._as_number()
+        if self_val == other_val:
+                return 0
+        elif self_val < other_val:
+            return -1
+        else:
+            return 1
+
     def __str__(self):
         return str(self._sbvalue_object)
+
+    def __int__(self):
+        return int(self._as_number())
+
+    def __long__(self):
+        return long(self._as_number())
+
+    def __float__(self):
+        return float(self._as_number())
 
     def __getitem__(self, index):
         # TODO: Clean this method up and add support to get members from
@@ -312,93 +471,27 @@ class Value(object):
         return Value(self._sbvalue_object.CreateValueFromAddress(
              "", new_addr, elem_sbtype))
 
-    def _as_integer(self):
-        sbtype, type_class = self._stripped_sbtype()
-        if ((type_class == lldb.eTypeClassPointer) or
-            (type_class in BASIC_UNSIGNED_INTEGER_TYPES)):
-            intval = self._sbvalue_object.GetValueAsUnsigned()
-        elif type_class in BASIC_SIGNED_INTEGER_TYPES:
-            intval = self._sbvalue_object.GetValueAsSigned()
-        else:
-            return NotImplementedError(
-                'Comparison of non-integral/non-pointer values is not '
-                'implemented')
-        return intval
-
-    def _sum(self, number):
-        # TODO: Make this method more general. It currently only supports
-        # int or long second operand.
-        if not (isinstance(number, int) or isinstance(number, long)):
-            raise TypeError(
-                'Cannot perform add/sub with "%s" as second operand.',
-                str(type(number)))
-        sbtype, type_class = self._stripped_sbtype()
-        if sbtype.IsPointerType():
-        #if type_class == lldb.eTypeClassPointer:
-            addr = self._sbvalue_object.GetValueAsUnsigned()
-            new_addr = (addr +
-                        number * sbtype.GetPointeeType().GetByteSize())
-            new_sbvalue = self._sbvalue_object.CreateValueFromAddress(
-                '', new_addr, sbtype.GetPointeeType())
-            return Value(
-                new_sbvalue.AddressOf().Cast(self._sbvalue_object.GetType()))
-        elif type_class == lldb.eTypeClassBuiltin:
-            res = self.__int__() + int(number)
-            data = lldb.SBData()
-            data.SetDataFromUInt64Array([int(res)])
-            return Value(
-                self._sbvalue_object.CreateValueFromData(
-                    '', data, lldb.target.FindFirstType('int')))
-        raise TypeError('Cannot perform arithmetic operations on objects'
-                        'of type "%s".' % self._sbvalue_object)
-
     def __add__(self, number):
-        return self._sum(number)
+        return self._binary_op(number, OP_ADD)
 
     def __radd__(self, number):
-        return self._sum(number)
+        return self._binary_op(number, OP_ADD, reverse=True)
 
     def __sub__(self, number):
-        sbtype, type_class = self._stripped_sbtype()
-        if isinstance(number, int) or isinstance(number, long):
-            return self._sum(-number)
-        elif type_class == lldb.eTypeClassPointer:
-            if isinstance(number, Value):
-                number_sbtype = number.sbvalue().GetType()
-                number_sbtype = Type(number_sbtype).strip_typedefs().sbtype()
-                if number_sbtype == sbtype:
-                    op1 = self._sbvalue_object.GetValueAsUnsigned()
-                    op2 = number.sbvalue().GetValueAsUnsigned()
-                    diff = (op1 - op2) / sbtype.GetPointeeType().GetByteSize()
-                    return diff
-        raise TypeError('Cannot perform arithmetic operations on objects'
-                        'of type "%s".' % self._sbvalue_object.GetType())
+        return self._binary_op(number, OP_SUB)
 
     def __rsub__(self, number):
-        return number - self.__int__()
-
-    def __int__(self):
-        return int(self._as_integer())
-
-    def __long__(self):
-        return long(self._as_integer())
+        return self._binary_op(number, OP_SUB, reverse=True)
 
     def __nonzero__(self):
         sbtype, type_class = self._stripped_sbtype()
         if ((type_class == lldb.eTypeClassPointer) or
             (type_class in BASIC_UNSIGNED_INTEGER_TYPES) or
-            (type_class in BASIC_UNSIGNED_INTEGER_TYPES)):
-            return self.__int__() != 0
+            (type_class in BASIC_UNSIGNED_INTEGER_TYPES) or
+            (type_class in BASIC_FLOAT_TYPES)):
+            return self._as_number() != 0
         else:
-            return True
-
-    def _cmp(self, other):
-        if self.__int__() == int(other):
-            return 0
-        elif self.__int__() < int(other):
-            return -1
-        else:
-            return 1
+            return self._sbvalue_object.IsValid()
 
     def __eq__(self, other):
         if self._cmp(other) == 0:
@@ -437,53 +530,34 @@ class Value(object):
             return False
 
     def __and__(self, other):
-        res = self.__int__() & int(other)
-        data = lldb.SBData()
-        data.SetDataFromUInt64Array([int(res)])
-        return Value(self._sbvalue_object.CreateValueFromData(
-            '', data, self._sbvalue_object.GetType()))
+        return self._binary_op(other, OP_BITWISE_AND)
+
+    def __rand__(self, other):
+        return self._binary_op(other, OP_BITWISE_AND, reverse=True)
 
     def __or__(self, other):
-        res = self.__int__() | int(other)
-        data = lldb.SBData()
-        data.SetDataFromUInt64Array([int(res)])
-        return Value(self._sbvalue_object.CreateValueFromData(
-            '', data, self._sbvalue_object.GetType()))
+        return self._binary_op(other, OP_BITWISE_OR)
+
+    def __ror__(self, other):
+        return self._binary_op(other, OP_BITWISE_OR, reverse=True)
 
     def __xor__(self, other):
-        res = self.__int__() ^ int(other)
-        data = lldb.SBData()
-        data.SetDataFromUInt64Array([int(res)])
-        return Value(self._sbvalue_object.CreateValueFromData(
-            '', data, self._sbvalue_object.GetType()))
+        return self._binary_op(other, OP_BITWISE_XOR)
+
+    def __rxor__(self, other):
+        return self._binary_op(other, OP_BITWISE_XOR, reverse=True)
 
     def __lshift__(self, other):
-        res = self.__int__() << int(other)
-        data = lldb.SBData()
-        data.SetDataFromUInt64Array([int(res)])
-        return Value(self._sbvalue_object.CreateValueFromData(
-            '', data, self._sbvalue_object.GetType()))
-
-    def __rshift__(self, other):
-        res = self.__int__() >> int(other)
-        data = lldb.SBData()
-        data.SetDataFromUInt64Array([int(res)])
-        return Value(self._sbvalue_object.CreateValueFromData(
-            '', data, self._sbvalue_object.GetType()))
+        return self._binary_op(other, OP_LSHIFT)
 
     def __rlshift__(self, other):
-        res = int(other) << self.__int__()
-        data = lldb.SBData()
-        data.SetDataFromUInt64Array([int(res)])
-        return Value(self._sbvalue_object.CreateValueFromData(
-            '', data, self._sbvalue_object.GetType()))
+        return self._binary_op(other, OP_LSHIFT, reverse=True)
+
+    def __rshift__(self, other):
+        return self._binary_op(other, OP_RSHIFT)
 
     def __rrshift__(self, other):
-        res = int(other) << self.__int__()
-        data = lldb.SBData()
-        data.SetDataFromUInt64Array([int(res)])
-        return Value(self._sbvalue_object.CreateValueFromData(
-            '', data, self._sbvalue_object.GetType()))
+        return self._binary_op(other, OP_RSHIFT, reverse=True)
 
     @property
     def type(self):
