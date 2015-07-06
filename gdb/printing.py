@@ -124,14 +124,15 @@ def register_pretty_printer(obj, printer):
                printer.name)
         return
     cat = lldb.debugger.CreateCategory(printer.name)
+    type_options = (lldb.eTypeOptionCascade | lldb.eTypeOptionSkipPointers |
+                    lldb.eTypeOptionSkipReferences)
     for sp in printer.subprinters:
         cat.AddTypeSummary(
             lldb.SBTypeNameSpecifier('^%s<.+>(( )?&)?$' % sp.name, True),
             lldb.SBTypeSummary.CreateWithFunctionName(
-                'gdb.printing.type_summary_function', lldb.eTypeOptionCascade))
+                'gdb.printing.type_summary_function', type_options))
         cat.AddTypeSynthetic(
             lldb.SBTypeNameSpecifier('^%s<.+>(( )?&)?$' % sp.name, True),
             lldb.SBTypeSynthetic.CreateWithClassName(
-                'gdb.printing.GdbPrinterSynthProvider',
-                lldb.eTypeOptionCascade))
+                'gdb.printing.GdbPrinterSynthProvider', type_options))
     cat.SetEnabled(True)
