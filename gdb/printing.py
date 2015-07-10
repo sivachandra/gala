@@ -78,13 +78,19 @@ class GdbPrinterSynthProvider(object):
             except:
                 print_exc('Error iterating over pretty printer children.')
 
+    def _get_display_hint(self):
+        if hasattr(self._pp, 'display_hint'):
+            return self._pp.display_hint()
+
     def num_children(self):
         self._get_children()
-        return len(self._children)
+        if self._get_display_hint() == 'map':
+            return len(self._children) / 2
+        else:
+            return len(self._children)
 
     def get_child_index(self, name):
-        if (hasattr(self._pp, 'display_hint') and
-            self._pp.display_hint() == 'array'):
+        if self._get_display_hint() == 'array':
             try:
                 return int(name.lstrip('[').rstrip(']'))
             except:
@@ -94,17 +100,39 @@ class GdbPrinterSynthProvider(object):
     def get_child_at_index(self, index):
         assert hasattr(self._pp, 'children')
         self._get_children()
-        if index < len(self._children):
-            c = self._children[index]
-            if not isinstance(c[1], gdb.Value):
-                data = lldb.SBData()
-                data.SetDataFromUInt64Array([int(c[1])])
-                return self._sbvalue.CreateValueFromData(
-                    c[0], data, lldb.target.FindFirstType('int'))
-            else:
-                return c[1].sbvalue().CreateChildAtOffset(
-                    c[0], 0, c[1].sbvalue().GetType())
-            return sbvalue
+        if self._get_display_hint() == 'map':
+            if index < len(self._children):
+                key = self._children[index * 2][1]
+                val = self._children[index * 2 + 1][1]
+                key_str = key.sbvalue().GetSummary()
+                if not key_str:
+                    key_str = key.sbvalue().GetValue()
+                if not key_str:
+                    key_str = str(key)
+                if isinstance(val, gdb.Value):
+                    return val.sbvalue().CreateChildAtOffset(
+                        '[%s]' % key_str,
+                        0,
+                        val.sbvalue().GetType())
+                else:
+                    data = lldb.SBData()
+                    data.SetDataFromUInt64Array([int(val)])
+                    return self._sbvalue.CreateValueFromData(
+                        '[%s]' % key_str,
+                        data,
+                        lldb.target.FindFirstType('int'))
+        else:
+            if index < len(self._children):
+                c = self._children[index]
+                if not isinstance(c[1], gdb.Value):
+                    data = lldb.SBData()
+                    data.SetDataFromUInt64Array([int(c[1])])
+                    return self._sbvalue.CreateValueFromData(
+                        c[0], data, lldb.target.FindFirstType('int'))
+                else:
+                    return c[1].sbvalue().CreateChildAtOffset(
+                        c[0], 0, c[1].sbvalue().GetType())
+                return sbvalue
         raise IndexError('Child not present at given index.')
 
     def update(self):
