@@ -437,17 +437,21 @@ class Value(object):
         return float(self._as_number())
 
     def __getitem__(self, index):
-        # TODO: Clean this method up and add support to get members from
-        # pointers to struct/class values.
         sbtype = self._sbvalue_object.GetType()
         stripped_sbtype, type_class = self._stripped_sbtype()
+        if type_class == lldb.eTypeClassPointer:
+            val = Value(
+                self._sbvalue_object.Cast(stripped_sbtype).Dereference())
+            stripped_sbtype, type_class = val._stripped_sbtype()
+            stripped_sbval = val.sbvalue().Cast(stripped_sbtype)
+        else:
+            stripped_sbval = self._sbvalue_object.Cast(stripped_sbtype)
         if (type_class == lldb.eTypeClassClass or
             type_class == lldb.eTypeClassStruct or
             type_class == lldb.eTypeClassUnion):
             if not isinstance(index, str):
                 raise KeyError('Key value used to subscript a '
                                'class/struct/union value is not a string.')
-            stripped_sbval = self._sbvalue_object.Cast(stripped_sbtype)
             mem_sbval = stripped_sbval.GetChildMemberWithName(index)
             if (not mem_sbval) or (not mem_sbval.IsValid()):
                 raise KeyError(
