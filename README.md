@@ -13,7 +13,7 @@ Do the following to start using GALA with LLDB:
          git clone https://github.com/sivachandra/gala.git
 
      For convenience, lets say the path to the cloned git repo
-     is <path_to_gala>.
+     is path_to_gala.
 
   2. Add the following lines to your .lldninit file:
 
@@ -26,3 +26,8 @@ Do the following to start using GALA with LLDB:
 
          script import gdb
          script import gdb.printing
+
+## Wiki
+
+For more information about GALA, visit the project wiki at
+https://github.com/sivachandra/gala/wiki.
