@@ -204,6 +204,21 @@ class Type(object):
     def sbtype(self):
         return self._sbtype_object
 
+    def _is_baseclass(self, baseclass_sbtype):
+        base_sbtype = Type(baseclass_sbtype).strip_typedefs().sbtype()
+        self_sbtype = self.strip_typedefs().sbtype()
+        for i in range(self_sbtype.GetNumberOfDirectBaseClasses()):
+            base_mem = self_sbtype.GetDirectBaseClassAtIndex(i)
+            base_sbtype_i = Type(base_mem.GetType()).strip_typedefs().sbtype()
+            if base_sbtype_i == base_sbtype:
+                return (True, base_mem.GetOffsetInBytes())
+            else:
+                is_baseclass, offset = Type(base_sbtype_i)._is_baseclass(
+                    baseclass_sbtype)
+                if is_baseclass:
+                    return (True, base_mem.GetOffsetInBytes() + offset)
+        return (False, None)
+
     def __str__(self):
         return self._sbtype_object.GetName()
 
@@ -578,6 +593,12 @@ class Value(object):
         return Value(ptr_sbvalue)
 
     def cast(self, gdbtype):
+        target_sbtype = gdbtype.sbtype()
+        self_sbtype = self._sbvalue_object.GetType()
+        is_baseclass, offset = Type(self_sbtype)._is_baseclass(target_sbtype)
+        if is_baseclass:
+            return Value(self._sbvalue_object.CreateChildAtOffset(
+                self._sbvalue_object.GetName(), offset, target_sbtype))
         return Value(self._sbvalue_object.Cast(gdbtype.sbtype()))
 
     def dereference(self):
