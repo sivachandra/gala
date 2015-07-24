@@ -156,11 +156,11 @@ def register_pretty_printer(obj, printer):
                     lldb.eTypeOptionSkipReferences)
     for sp in printer.subprinters:
         cat.AddTypeSummary(
-            lldb.SBTypeNameSpecifier('^%s<.+>(( )?&)?$' % sp.name, True),
+            lldb.SBTypeNameSpecifier('^%s(<.+>)?(( )?&)?$' % sp.name, True),
             lldb.SBTypeSummary.CreateWithFunctionName(
                 'gdb.printing.type_summary_function', type_options))
         cat.AddTypeSynthetic(
-            lldb.SBTypeNameSpecifier('^%s<.+>(( )?&)?$' % sp.name, True),
+            lldb.SBTypeNameSpecifier('^%s(<.+>)?(( )?&)?$' % sp.name, True),
             lldb.SBTypeSynthetic.CreateWithClassName(
                 'gdb.printing.GdbPrinterSynthProvider', type_options))
     cat.SetEnabled(True)
