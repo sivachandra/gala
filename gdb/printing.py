@@ -152,8 +152,10 @@ def register_pretty_printer(obj, printer):
                printer.name)
         return
     cat = lldb.debugger.CreateCategory(printer.name)
-    type_options = (lldb.eTypeOptionCascade | lldb.eTypeOptionSkipPointers |
-                    lldb.eTypeOptionSkipReferences)
+    type_options = (lldb.eTypeOptionCascade |
+                    lldb.eTypeOptionSkipPointers |
+                    lldb.eTypeOptionSkipReferences |
+                    lldb.eTypeOptionHideEmptyAggregates)
     for sp in printer.subprinters:
         cat.AddTypeSummary(
             lldb.SBTypeNameSpecifier('^%s(<.+>)?(( )?&)?$' % sp.name, True),
