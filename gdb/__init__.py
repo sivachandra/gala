@@ -632,13 +632,16 @@ def lookup_type(name, block=None):
     chunks = name.split('::')
     unscoped_name = chunks[-1]
     typelist = lldb.target.FindTypes(unscoped_name)
-    if typelist.GetSize() == 1:
-        return Type(typelist.GetTypeAtIndex(0))
-    for i in range(0, typelist.GetSize()):
+    count = typelist.GetSize()
+    for i in range(count):
         t = typelist.GetTypeAtIndex(i)
         if t.GetName() == name:
             return Type(t)
-    raise RuntimeError('Type "%s" not found.' % name)
+        else:
+            canonical_sbtype = t.GetCanonicalType()
+            if canonical_sbtype.GetName() == name:
+                return Type(canonical_sbtype)
+    raise RuntimeError('Type "%s" not found in %d matches.' % (name, count))
 
 
 def current_objfile():
