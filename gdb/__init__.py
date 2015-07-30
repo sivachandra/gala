@@ -168,7 +168,8 @@ BUILTIN_TYPE_NAME_TO_SBTYPE_MAP = {
 def get_builtin_sbtype(typename):
     sbtype = BUILTIN_TYPE_NAME_TO_SBTYPE_MAP.get(typename)
     if not sbtype:
-        sbtype = lldb.target.FindFirstType(typename)
+        target = lldb.debugger.GetSelectedTarget()
+        sbtype = target.FindFirstType(typename)
         BUILTIN_TYPE_NAME_TO_SBTYPE_MAP[typename] = sbtype
     return sbtype
 
@@ -612,17 +613,18 @@ class Value(object):
     def string(self, length):
         s = ''
         for i in range(0, length):
+            target = lldb.debugger.GetSelectedTarget()
             sbaddr = lldb.SBAddress(
-                self._sbvalue_object.GetValueAsUnsigned() + i, lldb.target)
+                self._sbvalue_object.GetValueAsUnsigned() + i, target)
             sberr = lldb.SBError()
-            ss = str(lldb.target.ReadMemory(sbaddr, 1, sberr))
+            ss = str(target.ReadMemory(sbaddr, 1, sberr))
             s += ss
         return s
 
 
 def parse_and_eval(expr):
     opts = lldb.SBExpressionOptions()
-    sbvalue = lldb.target.EvaluateExpression(expr, opts)
+    sbvalue = lldb.debugger.GetSelectedTarget().EvaluateExpression(expr, opts)
     if sbvalue and sbvalue.IsValid():
         return Value(sbvalue)
     return RuntimeError('Unable to evaluate "%s".', expr)
@@ -631,7 +633,7 @@ def parse_and_eval(expr):
 def lookup_type(name, block=None):
     chunks = name.split('::')
     unscoped_name = chunks[-1]
-    typelist = lldb.target.FindTypes(unscoped_name)
+    typelist = lldb.debugger.GetSelectedTarget().FindTypes(unscoped_name)
     count = typelist.GetSize()
     for i in range(count):
         t = typelist.GetTypeAtIndex(i)

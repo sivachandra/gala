@@ -120,7 +120,7 @@ class GdbPrinterSynthProvider(object):
                     return self._sbvalue.CreateValueFromData(
                         '[%s]' % key_str,
                         data,
-                        lldb.target.FindFirstType('int'))
+                        lldb.debugger.GetSelectedTarget().FindFirstType('int'))
         else:
             if index < len(self._children):
                 c = self._children[index]
@@ -128,7 +128,9 @@ class GdbPrinterSynthProvider(object):
                     data = lldb.SBData()
                     data.SetDataFromUInt64Array([int(c[1])])
                     return self._sbvalue.CreateValueFromData(
-                        c[0], data, lldb.target.FindFirstType('int'))
+                        c[0],
+                        data,
+                        lldb.debugger.GetSelectedTarget().FindFirstType('int'))
                 else:
                     return c[1].sbvalue().CreateChildAtOffset(
                         c[0], 0, c[1].sbvalue().GetType())
