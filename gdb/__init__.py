@@ -441,7 +441,12 @@ class Value(object):
             return 1
 
     def __str__(self):
-        return str(self._sbvalue_object)
+        valstr = self._sbvalue_object.GetSummary()
+        if not valstr:
+            valstr = self._sbvalue_object.GetValue()
+        if not valstr:
+            valstr = str(self._sbvalue_object)
+        return valstr
 
     def __int__(self):
         return int(self._as_number())
