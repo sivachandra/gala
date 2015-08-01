@@ -127,4 +127,4 @@ class PrettyPrinterTest(unittest.TestCase):
                 for s in var_strings.substrs:
                     self.assertTrue(s in val_str)
         process.Continue()
-        lldb.SBDebugger.Terminate()
+        lldb.SBDebugger.Destroy(db)
