@@ -14,14 +14,16 @@
 ## limitations under the License.
 ############################################################################
 
+from __future__ import print_function
+
 import os
 import os.path
 import subprocess
+import sys
 
 import lldb
 
-
-LOG_FILE_NAME = 'gala-test.log'
+LOG_FILE_NAME = None
 GALA_PATH = None
 
 
@@ -40,8 +42,18 @@ def errmsg(msg, stdout=None, stderr=None):
     return s
 
 
+def init_log_file(name=LOG_FILE_NAME):
+    with open(name, 'w') as f:
+        global LOG_FILE_NAME
+        LOG_FILE_NAME = name
+
+
 def log(msg):
-    print(msg)
+    if LOG_FILE_NAME:
+        with open(LOG_FILE_NAME, 'a') as f:
+            f.write(msg + '\n')
+    else:
+        print(msg)
 
 
 def load_pretty_printers(debugger, script_path, stmt):

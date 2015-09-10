@@ -77,6 +77,7 @@ class PrettyPrinterTest(unittest.TestCase):
         # TODO: This for loop assumes that the breakpoints in self.bp_test_map
         # are in the order they will be hit. This needs to fixed. For now, if
         # there is only one breakpoint, it works.
+        found_failure = False
         for bp_loc in self.bp_test_map:
             bp_count += 1
             bp = target.BreakpointCreateByLocation(self.src_file, bp_loc)
@@ -105,9 +106,12 @@ class PrettyPrinterTest(unittest.TestCase):
                               val_str +
                               '\n</expression_evaluation_result>\n')
                 for s in var_strings.substrs:
-                    self.assertTrue(s in val_str,
-                                    '"%s" not found in "%s"' % (s, val_str))
-
+                    try:
+                        self.assertTrue(s in val_str,
+                                        '"%s" not found in "%s"' % (s, val_str))
+                    except AssertionError as e:
+                        testutils.log(str(e))
+                        found_failure = True
                 frame = process.GetSelectedThread().GetSelectedFrame()
                 val = frame.FindVariable(var_strings.var)
                 testutils.log('Running "frame var %s"' % var_strings.var)
@@ -119,6 +123,12 @@ class PrettyPrinterTest(unittest.TestCase):
                               val_str +
                               '\n</value>\n')
                 for s in var_strings.substrs:
-                    self.assertTrue(s in val_str)
+                    try:
+                        self.assertTrue(s in val_str)
+                    except AssertionError as e:
+                        testutils.log(str(e))
+                        found_failure = True
         process.Continue()
         lldb.SBDebugger.Destroy(db)
+        if found_failure:
+            self.fail('One or more failures detected in "%s"' % self.name)

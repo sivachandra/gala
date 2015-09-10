@@ -22,30 +22,35 @@ import os.path
 import sys
 import unittest
 
+import libstdcxx
 import pptest
 import testutils
 
 
 def run_tests(tests):
     bad_count = 0
+    failure_list = []
+    error_list = []
     for test in tests:
         result = unittest.TestResult()
         test.run(result)
-        testutils.log('Found %d errors and %d failures.' %
-              (len(result.errors), len(result.failures)))
+        testutils.log('Found %d errors and %d failures in "%s".' %
+              (len(result.errors), len(result.failures), test.name))
         if result.errors:
             err_count = 0
             for e in result.errors:
                 err_count += 1
                 testutils.log('ERROR %d:\n%s' % (err_count, e[1]))
             bad_count += err_count
+            error_list.append(test.name)
         if result.failures:
             failure_count = 0
             for f in result.failures:
                 failure_count += 1
                 testutils.log('FAILURE %d:\n%s' % (failure_count, f[1]))
             bad_count += failure_count
-    return bad_count
+            failure_list.append(test.name)
+    return bad_count, error_list, failure_list
 
 
 def load_json_tests(json_file):
@@ -111,14 +116,16 @@ def parse_options():
 def main():
     options = parse_options()
     testutils.GALA_PATH = options.gala_path
-    try:
-        os.remove(testutils.LOG_FILE_NAME)
-    except:
-        pass
+    testutils.init_log_file('gala-test.log')
     tests = []
     if options.json_file:
         tests.extend(load_json_tests(options.json_file))
-    bad_count = run_tests(tests)
+    tests.extend(libstdcxx.get_libstdcxx_tests())
+    bad_count, error_list, failure_list = run_tests(tests)
+    if error_list:
+        print('Errors: %s' % str(error_list))
+    if failure_list:
+        print('Failures: %s' % str(failure_list))
     if bad_count > 0:
         sys.exit('Found %d unexpected failures and/or errors.' % bad_count)
     print('Tests completed successfully.')
