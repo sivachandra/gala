@@ -46,6 +46,8 @@ class GdbPrinterSynthProvider(object):
         self._sbvalue = sbvalue
         self._pp = None
         self._children = []
+        self._children_iterator = None
+        self._iter_count = 0
         for p in gdb.pretty_printers:
             try:
                 self._pp = p(gdb.Value(self._sbvalue))
@@ -56,32 +58,41 @@ class GdbPrinterSynthProvider(object):
         if not self._pp:
             raise RuntimeError('Could not find a pretty printer!')
 
-    def _get_children(self):
-        if len(self._children) > 0:
+    def _get_children(self, max_count):
+        if len(self._children) >= max_count:
             return
-        if hasattr(self._pp, 'children') and (not self._children):
+        if not hasattr(self._pp, 'children'):
+            return
+        if not self._children_iterator:
             try:
-                children = self._pp.children()
+                self._children_iterator = self._pp.children()
             except:
                 print_exc('Error calling "children" method of a '
                           'GDB pretty printer.')
                 return
-            try:
-                for c in children:
-                    self._children.append(c)
-            except:
-                print_exc('Error iterating over pretty printer children.')
+
+        try:
+            while self._iter_count < max_count:
+                try:
+                    next_child = self._children_iterator.next()
+                except StopIteration:
+                    break
+                self._children.append(next_child)
+                self._iter_count += 1
+        except:
+            print_exc('Error iterating over pretty printer children.')
 
     def _get_display_hint(self):
         if hasattr(self._pp, 'display_hint'):
             return self._pp.display_hint()
 
-    def num_children(self):
-        self._get_children()
+    def num_children(self, max_count):
         if self._get_display_hint() == 'map':
-            return len(self._children) / 2
+            self._get_children(2 * max_count)
+            return min(len(self._children) / 2, max_count)
         else:
-            return len(self._children)
+            self._get_children(max_count)
+            return min(len(self._children), max_count)
 
     def get_child_index(self, name):
         if self._get_display_hint() == 'array':
@@ -93,9 +104,9 @@ class GdbPrinterSynthProvider(object):
 
     def get_child_at_index(self, index):
         assert hasattr(self._pp, 'children')
-        self._get_children()
         if self._get_display_hint() == 'map':
-            if index < len(self._children):
+            self._get_children(2 * (index + 1))
+            if index < (len(self._children) / 2):
                 key = self._children[index * 2][1]
                 val = self._children[index * 2 + 1][1]
                 key_str = key.sbvalue().GetSummary()
@@ -116,6 +127,7 @@ class GdbPrinterSynthProvider(object):
                         data,
                         lldb.debugger.GetSelectedTarget().FindFirstType('int'))
         else:
+            self._get_children(index + 1)
             if index < len(self._children):
                 c = self._children[index]
                 if not isinstance(c[1], gdb.Value):
@@ -133,6 +145,8 @@ class GdbPrinterSynthProvider(object):
 
     def update(self):
         self._children = []
+        self._children_iterator = None
+        self._iter_count = 0
 
     def has_children(self):
         return hasattr(self._pp, 'children')
