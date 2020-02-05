@@ -1,0 +1,6 @@
+script import sys
+script sys.path.append("/usr/local/google/home/sivachandra/gala")
+script import gdb
+script import gdb.printing
+
+script import tuple_printer
