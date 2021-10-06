@@ -608,6 +608,11 @@ class Value(object):
                 self._sbvalue_object.GetName(), offset, target_sbtype))
         return Value(self._sbvalue_object.Cast(gdbtype.sbtype()))
 
+    def reinterpret_cast(self, gdbtype):
+        # lldb SBValue.Cast should work correctly to cast between pointer types.
+        # TODO: error out if types are not correct for a reinterpret_cast.
+        return Value(self._sbvalue_object.Cast(gdbtype.sbtype()))
+
     def dereference(self):
         stripped_sbtype, _ = self._stripped_sbtype()
         stripped_sbval = self._sbvalue_object.Cast(stripped_sbtype)
