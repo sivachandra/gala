@@ -269,6 +269,10 @@ class Type(object):
     def unqualified(self):
         return Type(self._sbtype_object.GetUnqualifiedType())
 
+    def array(self, higher_bound):
+        # lldb expects size instead of higher_bound.
+        return Type(self._sbtype_object.GetArrayType(higher_bound + 1))
+
     def pointer(self):
         return Type(self._sbtype_object.GetPointerType())
 
