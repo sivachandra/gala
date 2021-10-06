@@ -324,6 +324,9 @@ class Value(object):
 
     def _as_number(self):
         sbtype, type_class = self._stripped_sbtype()
+        if type_class == lldb.eTypeClassEnumeration:
+            sbtype = sbtype.GetEnumerationIntegerType().GetCanonicalType()
+            type_class = sbtype.GetTypeClass()
         if ((type_class == lldb.eTypeClassPointer) or
             (type_class in BASIC_UNSIGNED_INTEGER_TYPES)):
             numval = self._sbvalue_object.GetValueAsUnsigned()
