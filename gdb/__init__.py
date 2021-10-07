@@ -448,6 +448,9 @@ class Value(object):
             valstr = str(self._sbvalue_object)
         return valstr
 
+    def __index__(self):
+        return int(self._as_number())
+
     def __int__(self):
         return int(self._as_number())
 
