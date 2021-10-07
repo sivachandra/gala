@@ -123,9 +123,9 @@ def main():
     tests.extend(libstdcxx.get_libstdcxx_tests())
     bad_count, error_list, failure_list = run_tests(tests)
     if error_list:
-        print('Errors: %s' % str(error_list))
+        print(('Errors: %s' % str(error_list)))
     if failure_list:
-        print('Failures: %s' % str(failure_list))
+        print(('Failures: %s' % str(failure_list)))
     if bad_count > 0:
         sys.exit('Found %d unexpected failures and/or errors.' % bad_count)
     print('Tests completed successfully.')

@@ -20,9 +20,9 @@ import lldb
 import traceback
 
 def print_exc(err_msg):
-    print '<<< %s >>>' % err_msg
+    print('<<< %s >>>' % err_msg)
     traceback.print_exc()
-    print '<<< --- >>>'
+    print('<<< --- >>>')
 
 
 def type_summary_function(sbvalue, internal_dict):
@@ -74,7 +74,7 @@ class GdbPrinterSynthProvider(object):
         try:
             while self._iter_count < max_count:
                 try:
-                    next_child = self._children_iterator.next()
+                    next_child = next(self._children_iterator)
                 except StopIteration:
                     break
                 self._children.append(next_child)
@@ -158,8 +158,8 @@ class GdbPrinterSynthProvider(object):
 def register_pretty_printer(obj, printer):
     gdb.pretty_printers.append(printer)
     if lldb.debugger.GetCategory(printer.name).IsValid():
-        print ('WARNING: A type category with name "%s" already exists.' %
-               printer.name)
+        print(('WARNING: A type category with name "%s" already exists.' %
+               printer.name))
         return
     cat = lldb.debugger.CreateCategory(printer.name)
     type_options = (lldb.eTypeOptionCascade |
