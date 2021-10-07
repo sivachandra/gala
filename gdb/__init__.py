@@ -358,7 +358,7 @@ class Value(object):
             if not (op == OP_ADD or op == OP_SUB) or reverse:
                 raise TypeError(
                     'Invalid binary operation on/with pointer value.')
-        if isinstance(other, int) or isinstance(other, long):
+        if isinstance(other, int):
             other_val = other
             other_sbtype = get_builtin_sbtype('long')
             other_type_class = lldb.eTypeClassBuiltin
@@ -426,8 +426,7 @@ class Value(object):
             '', data, self._sbvalue_object.GetType()))
 
     def _cmp(self, other):
-        if (isinstance(other, int) or isinstance(other, long) or
-            isinstance(other, float)):
+        if (isinstance(other, int) or isinstance(other, float)):
             other_val = other
         elif isinstance(other, Value):
             other_val = other._as_number()
@@ -451,9 +450,6 @@ class Value(object):
 
     def __int__(self):
         return int(self._as_number())
-
-    def __long__(self):
-        return long(self._as_number())
 
     def __float__(self):
         return float(self._as_number())
@@ -481,7 +477,7 @@ class Value(object):
                     (index, sbtype.GetName()))
             return Value(mem_sbval)
 
-        if not (isinstance(index, int) or isinstance(index, long)):
+        if not isinstance(index, int):
             raise KeyError('Unsupported key type for "[]" operator.')
 
         if type_class == lldb.eTypeClassPointer:
@@ -509,7 +505,7 @@ class Value(object):
     def __rsub__(self, number):
         return self._binary_op(number, OP_SUB, reverse=True)
 
-    def __nonzero__(self):
+    def __bool__(self):
         sbtype, type_class = self._stripped_sbtype()
         if ((type_class == lldb.eTypeClassPointer) or
             (type_class in BASIC_UNSIGNED_INTEGER_TYPES) or
