@@ -661,6 +661,10 @@ def current_objfile():
     return None
 
 
+def current_progspace():
+    return None
+
+
 def default_visualizer(value):
     for p in pretty_printers:
         pp = p(value)
