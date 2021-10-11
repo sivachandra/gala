@@ -15,14 +15,14 @@ Do the following to start using GALA with LLDB:
      For convenience, lets say the path to the cloned git repo
      is path_to_gala.
 
-  2. Add the following lines to your .lldninit file:
+  2. Add the following lines to your .lldbinit file:
 
          script import sys
          script import sys.path.append(<path_to_gala>)
 
   3. [Optional] To make the 'gdb' and 'gdb.printing' modules available
      by default with LLDB scripting, add these lines (after step 2 from above)
-     to your .lldninit file:
+     to your .lldbinit file:
 
          script import gdb
          script import gdb.printing
