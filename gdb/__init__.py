@@ -511,6 +511,7 @@ class Value(object):
     def __bool__(self):
         sbtype, type_class = self._stripped_sbtype()
         if ((type_class == lldb.eTypeClassPointer) or
+            (type_class == lldb.eTypeClassEnumeration) or
             (type_class in BASIC_UNSIGNED_INTEGER_TYPES) or
             (type_class in BASIC_UNSIGNED_INTEGER_TYPES) or
             (type_class in BASIC_FLOAT_TYPES)):
