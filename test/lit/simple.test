@@ -1,0 +1,7 @@
+; RUN: %clangxx -g -o %t simple/simple.cc
+; RUN: %lldb -b -o 'b main' -o 'r' -o 'script import simple' %t | FileCheck %s
+CHECK: 1
+CHECK: 2
+CHECK: 3
+CHECK: a
+CHECK: string

@@ -1,0 +1,4 @@
+; RUN: %clangxx -g -o %t enum_bool/enum_bool.cc
+; RUN: %lldb -b -o 'b main' -o 'r' -o 'script import enum_bool' %t | FileCheck %s
+; CHECK: t is truthy
+; CHECK: f is falsey
