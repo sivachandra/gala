@@ -17,6 +17,14 @@
 import lldb
 
 
+class error(BaseException):
+    def __init__(self, msg):
+        self.msg = msg
+
+    def __str__(self):
+        return "gdb.error: %s"%msg
+
+
 pretty_printers = []
 
 
@@ -347,7 +355,7 @@ class Value(object):
                     'Could not convert float type value to a number:\n%s' %
                     err.GetCString())
         else:
-            return TypeError(
+            raise TypeError(
                 'Conversion of non-numerical/non-pointer values to numbers is '
                 'not supported.')
         return numval
@@ -481,7 +489,11 @@ class Value(object):
             return Value(mem_sbval)
 
         if not isinstance(index, int):
-            raise KeyError('Unsupported key type for "[]" operator.')
+            # The index can also be a numeric gdb.Value.
+            try:
+              index = index._as_number()
+            except TypeError:
+              raise error("Value can't be converted to integer.")
 
         if type_class == lldb.eTypeClassPointer:
             addr = self._sbvalue_object.GetValueAsUnsigned()

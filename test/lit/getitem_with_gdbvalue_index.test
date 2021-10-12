@@ -1,0 +1,11 @@
+; Check that you can pass a numeric gdb.Value to __getitem__.
+
+; RUN: %clangxx -g -o %t getitem_with_gdbvalue_index/getitem_with_gdbvalue_index.cc
+; RUN: %lldb -b -o 'b main' -o 'r' -o 'script import getitem_with_gdbvalue_index' %t | FileCheck %s
+
+; CHECK: literal_index -> 11
+; CHECK: int_index -> 22
+; CHECK: char_index -> 33
+; CHECK: float_index -> 44
+; CHECK: string_index -> ERROR
+; CHECK: enum_index -> 66
