@@ -491,7 +491,7 @@ class Value(object):
         if not isinstance(index, int):
             # The index can also be a numeric gdb.Value.
             try:
-              index = index._as_number()
+              index = int(index)
             except TypeError:
               raise error("Value can't be converted to integer.")
 
