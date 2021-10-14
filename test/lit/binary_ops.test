@@ -1,0 +1,25 @@
+; RUN: %clangxx -g -o %t binary_ops/binary_ops.cc
+; RUN: %lldb -b -o 'b main' -o 'r' -o 'script import binary_ops' %t | FileCheck %s
+
+;CHECK: i1 + i2 = 5
+;CHECK: i1 + 1 = 4
+;CHECK: 1 + i2 = 3
+;CHECK: i1 - i2 = 1
+;CHECK: i1 - 1 = 2
+;CHECK: 1 - i2 = -1
+;CHECK: f1 + f2 = 5.5
+;CHECK: f1 + 1.0 = 4.25
+;CHECK: 1.0 + f2 = 3.25
+;CHECK: d1 + d2 = 6
+;CHECK: d1 + 1.0 = 4.5
+;CHECK: 1.0 + d2 = 3.5
+;CHECK: f1 + d2 = 5.75
+;CHECK: d1 + f2 = 5.75
+;CHECK: f1 - f2 = 1
+;CHECK: f1 - 1.0 = 2.25
+;CHECK: 1.0 - f2 = -1.25
+;CHECK: d1 - d2 = 1
+;CHECK: d1 - 1.0 = 2.5
+;CHECK: 1.0 - d2 = -1.5
+;CHECK: f1 - d2 = 0.75
+;CHECK: d1 - f2 = 1.25
