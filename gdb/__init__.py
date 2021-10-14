@@ -332,21 +332,24 @@ class Value(object):
 
     def _as_number(self):
         sbtype, type_class = self._stripped_sbtype()
+        basic_type = sbtype.GetBasicType()
         if type_class == lldb.eTypeClassEnumeration:
             sbtype = sbtype.GetEnumerationIntegerType().GetCanonicalType()
             type_class = sbtype.GetTypeClass()
+            basic_type = sbtype.GetBasicType()
         if ((type_class == lldb.eTypeClassPointer) or
-            (type_class in BASIC_UNSIGNED_INTEGER_TYPES)):
+            (basic_type == lldb.eBasicTypeBool) or
+            (basic_type in BASIC_UNSIGNED_INTEGER_TYPES)):
             numval = self._sbvalue_object.GetValueAsUnsigned()
-        elif type_class in BASIC_SIGNED_INTEGER_TYPES:
+        elif basic_type in BASIC_SIGNED_INTEGER_TYPES:
             numval = self._sbvalue_object.GetValueAsSigned()
-        elif type_class in BASIC_FLOAT_TYPES:
+        elif basic_type in BASIC_FLOAT_TYPES:
             err = lldb.SBError()
-            if type_class == lldb.eBasicTypeFloat:
+            if basic_type == lldb.eBasicTypeFloat:
                 numval = self._sbvalue_object.GetData().GetFloat(err, 0)
-            elif type_class == lldb.eBasicTypeDouble:
+            elif basic_type == lldb.eBasicTypeDouble:
                 numval = self._sbvalue_object.GetData().GetDouble(err, 0)
-            elif type_class == lldb.eBasicTypeLongDouble:
+            elif basic_type == lldb.eBasicTypeLongDouble:
                 numval = self._sbvalue_object.GetData().GetLongDouble(err, 0)
             else:
                 raise RuntimeError('Something unexpected has happened.')
@@ -522,11 +525,12 @@ class Value(object):
 
     def __bool__(self):
         sbtype, type_class = self._stripped_sbtype()
+        basic_type = sbtype.GetBasicType()
         if ((type_class == lldb.eTypeClassPointer) or
             (type_class == lldb.eTypeClassEnumeration) or
-            (type_class in BASIC_UNSIGNED_INTEGER_TYPES) or
-            (type_class in BASIC_UNSIGNED_INTEGER_TYPES) or
-            (type_class in BASIC_FLOAT_TYPES)):
+            (basic_type in BASIC_UNSIGNED_INTEGER_TYPES) or
+            (basic_type in BASIC_UNSIGNED_INTEGER_TYPES) or
+            (basic_type in BASIC_FLOAT_TYPES)):
             return self._as_number() != 0
         else:
             return self._sbvalue_object.IsValid()
