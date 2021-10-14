@@ -442,7 +442,7 @@ class Value(object):
             raise TypeError('Comparing incompatible types.')
         self_val = self._as_number()
         if self_val == other_val:
-                return 0
+            return 0
         elif self_val < other_val:
             return -1
         else:
