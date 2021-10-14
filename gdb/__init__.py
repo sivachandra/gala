@@ -432,9 +432,16 @@ class Value(object):
         else:
             raise RuntimeError('Unsupported or incorrect binary operation.')
         data = lldb.SBData()
-        data.SetDataFromUInt64Array([res])
+        if isinstance(res, int):
+            data.SetDataFromUInt64Array([res])
+            result_type = get_builtin_sbtype('long')
+        elif isinstance(res, float):
+            data.SetDataFromDoubleArray([res])
+            result_type = get_builtin_sbtype('double')
+        else:
+            raise RuntimeError('Unsupported result type in binary operation.')
         return Value(self._sbvalue_object.CreateValueFromData(
-            '', data, self._sbvalue_object.GetType()))
+            '', data, result_type))
 
     def _cmp(self, other):
         if (isinstance(other, int) or isinstance(other, float)):
