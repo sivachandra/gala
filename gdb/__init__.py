@@ -535,7 +535,7 @@ class Value(object):
         basic_type = sbtype.GetBasicType()
         if ((type_class == lldb.eTypeClassPointer) or
             (type_class == lldb.eTypeClassEnumeration) or
-            (basic_type in BASIC_UNSIGNED_INTEGER_TYPES) or
+            (basic_type in BASIC_SIGNED_INTEGER_TYPES) or
             (basic_type in BASIC_UNSIGNED_INTEGER_TYPES) or
             (basic_type in BASIC_FLOAT_TYPES)):
             return self._as_number() != 0
