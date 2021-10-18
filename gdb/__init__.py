@@ -278,8 +278,10 @@ class Type(object):
         return Type(self._sbtype_object.GetUnqualifiedType())
 
     def array(self, higher_bound):
-        # lldb expects size instead of higher_bound.
-        return Type(self._sbtype_object.GetArrayType(higher_bound + 1))
+        # lldb expects size instead of higher_bound. gdb is pretty permissive
+        # with the type of the bound as long as it's somewhat numeric, so we
+        # cast it to an int to avoid type errors.
+        return Type(self._sbtype_object.GetArrayType(int(higher_bound) + 1))
 
     def pointer(self):
         return Type(self._sbtype_object.GetPointerType())

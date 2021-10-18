@@ -1,0 +1,9 @@
+; Check that you can pass a numeric gdb.Value as a bound to gdb.Type.array().
+
+; RUN: %clangxx -g -o %t array_with_gdbvalue_bound/array_with_gdbvalue_bound.cc
+; RUN: %lldb -b -o 'b main' -o 'r' -o 'script import array_with_gdbvalue_bound' %t | FileCheck %s
+
+; CHECK: {{MyClass.*11}}
+; CHECK: {{MyClass.*21}}
+; CHECK: {{MyClass.*31}}
+; CHECK: {{MyClass.*41}}
