@@ -157,9 +157,9 @@ class GdbPrinterSynthProvider(object):
 
 def register_pretty_printer(obj, printer, replace=False):
     gdb.pretty_printers.append(printer)
-    if lldb.debugger.GetCategory(printer_name).IsValid():
+    if lldb.debugger.GetCategory(printer.name).IsValid():
         if replace:
-            lldb.debugger.DeleteCategory(printer_name)
+            lldb.debugger.DeleteCategory(printer.name)
         else:
             raise RuntimeError(
                 'WARNING: A type category with name "%s" already exists.' %
