@@ -1,0 +1,38 @@
+; Checks that when a child has type 'char *' it is printed as a string, instead
+; of dereferencing it and showing the string characters as a pointer value.
+;
+; For example, this is what GALA shows as of commit
+; 39fa818319d10185eb0aed2932c1e4163234e6d9
+;
+; (MyClass) $0 = MyClass object with children: {
+;   [0] = 0x0000006f6c6c6568 ""
+; }
+;
+; Note how 0x006f6c6c6568 is, in fact, {0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x00} in
+; little endian. That is, "hello". It should print instead something like
+;
+; (MyClass) $0 = MyClass object with children: {
+;   [0] = 0x0000000000402004 "hello"
+; }
+;
+; Note also that the printer registration mechanism in GALA requires us to run
+; `script import gdb` at debugger init, even if the child_pointer module also
+; does `import gdb`.
+
+; RUN: %clangxx -g -o %t child_pointer/child_pointer.cc
+; RUN: %lldb -b \
+; RUN:       -o 'script import gdb' \
+; RUN:       -o 'b main' \
+; RUN:       -o 'r' \
+; RUN:       -o 'script import child_pointer' \
+; RUN:       -o 'p c' \
+; RUN:       -o 'p m' %t | FileCheck %s
+
+; skip lldb output until our print command
+; CHECK: p c
+; CHECK: MyClass object with children:
+; CHECK: [0] = 0x{{[0-9a-f].*}} "hello"
+
+; CHECK: p m
+; CHECK: MyMap object with children:
+; CHECK: ["my_key"] = 0x{{[0-9a-f].*}} "my_value"

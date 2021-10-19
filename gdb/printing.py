@@ -115,10 +115,9 @@ class GdbPrinterSynthProvider(object):
                 if not key_str:
                     key_str = str(key)
                 if isinstance(val, gdb.Value):
-                    return val.sbvalue().CreateChildAtOffset(
+                    return self._sbvalue.CreateValueFromData(
                         '[%s]' % key_str,
-                        0,
-                        val.sbvalue().GetType())
+                        val.sbvalue().GetData(), val.sbvalue().GetType())
                 else:
                     data = lldb.SBData()
                     data.SetDataFromUInt64Array([int(val)])
@@ -138,8 +137,9 @@ class GdbPrinterSynthProvider(object):
                         data,
                         lldb.debugger.GetSelectedTarget().FindFirstType('int'))
                 else:
-                    return c[1].sbvalue().CreateChildAtOffset(
-                        c[0], 0, c[1].sbvalue().GetType())
+                    return self._sbvalue.CreateValueFromData(
+                        c[0],
+                        c[1].sbvalue().GetData(), c[1].sbvalue().GetType())
                 return sbvalue
         raise IndexError('Child not present at given index.')
 
