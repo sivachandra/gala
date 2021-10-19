@@ -155,12 +155,15 @@ class GdbPrinterSynthProvider(object):
         return self._sbvalue
 
 
-def register_pretty_printer(obj, printer):
+def register_pretty_printer(obj, printer, replace=False):
     gdb.pretty_printers.append(printer)
-    if lldb.debugger.GetCategory(printer.name).IsValid():
-        print(('WARNING: A type category with name "%s" already exists.' %
-               printer.name))
-        return
+    if lldb.debugger.GetCategory(printer_name).IsValid():
+        if replace:
+            lldb.debugger.DeleteCategory(printer_name)
+        else:
+            raise RuntimeError(
+                'WARNING: A type category with name "%s" already exists.' %
+                printer.name)
     cat = lldb.debugger.CreateCategory(printer.name)
     type_options = (lldb.eTypeOptionCascade |
                     lldb.eTypeOptionSkipPointers |
