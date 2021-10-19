@@ -66,6 +66,8 @@ OP_BITWISE_OR = 3
 OP_BITWISE_XOR = 4
 OP_LSHIFT = 5
 OP_RSHIFT = 6
+OP_MUL = 7
+OP_TRUEDIV = 8
 
 
 TYPE_CLASS_TO_TYPE_CODE_MAP = {
@@ -421,6 +423,21 @@ class Value(object):
                         return self._binary_op(- other_val, OP_ADD)
                 else:
                     res = self._as_number() - other_val
+        elif op == OP_MUL:
+            if reverse:
+                res = other_val * self._as_number()
+            else:
+                res = self._as_number() * other_val
+        elif op == OP_TRUEDIV:
+            self_val = self._as_number()
+            if reverse:
+                res = other_val / self_val
+            else:
+                res = self_val / other_val
+            # gdb does integer division for integer gdb.Values, even in py3.
+            # Check if we're doing int/int and convert the result accordingly.
+            if isinstance(self_val, int) and isinstance(other_val, int):
+                res = int(res)
         elif op == OP_LSHIFT:
             if reverse:
                 return other_val << self._as_number()
@@ -531,6 +548,20 @@ class Value(object):
 
     def __rsub__(self, number):
         return self._binary_op(number, OP_SUB, reverse=True)
+
+    def __mul__(self, number):
+        return self._binary_op(number, OP_MUL)
+
+    def __rmul__(self, number):
+        return self._binary_op(number, OP_MUL, reverse=True)
+
+    # gdb with python3 uses the truediv (/) operator, but still does integer
+    # division.
+    def __truediv__(self, number):
+        return self._binary_op(number, OP_TRUEDIV)
+
+    def __rtruediv__(self, number):
+        return self._binary_op(number, OP_TRUEDIV, reverse=True)
 
     def __bool__(self):
         sbtype, type_class = self._stripped_sbtype()
