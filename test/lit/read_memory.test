@@ -1,0 +1,4 @@
+; RUN: %clangxx -g -o %t read_memory/read_memory.cc
+; RUN: %lldb -b -o 'b main' -o 'r' -o 'script import read_memory' %t | FileCheck %s
+CHECK: script import read_memory
+CHECK: b'Hello'

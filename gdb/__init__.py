@@ -657,6 +657,26 @@ class Value(object):
             s += ss
         return s
 
+class Inferior:
+    def __init__(self, sbprocess):
+        self._sbprocess = sbprocess
+
+    def read_memory(self, address, length):
+        """Reads `length` bytes at `address`. Returns a bytes object."""
+        # SBProcess.ReadMemory expects a positive length, so we need to handle
+        # the empty case here.
+        if length == 0:
+            return memoryview(b'')
+        err = lldb.SBError()
+        result = self._sbprocess.ReadMemory(int(address), int(length), err)
+        if not err.Success():
+            raise RuntimeError(err)
+        return memoryview(result)
+
+
+def selected_inferior():
+    return Inferior(lldb.debugger.GetSelectedTarget().GetProcess())
+
 
 def parse_and_eval(expr):
     opts = lldb.SBExpressionOptions()
