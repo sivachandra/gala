@@ -657,6 +657,19 @@ class Value(object):
             s += ss
         return s
 
+
+class Command:
+    pass
+
+
+class Parameter:
+    pass
+
+
+def parameter(s):
+    return None
+
+
 class Inferior:
     def __init__(self, sbprocess):
         self._sbprocess = sbprocess
