@@ -27,9 +27,34 @@ def print_exc(err_msg):
     print('<<< --- >>>')
 
 
-def type_summary_function(sbvalue, internal_dict):
+# We use the same type summary and synthetic child provider logic for all gdb
+# pretty printers. They are just a generic layer that interfaces with the gdb
+# script that defines the actual pretty printer.
+#
+# There are two ways this could be done, and this area is very sparsely
+# documented, so I'm going to describe some details here:
+#
+# - SBTypeSummary.CreateWithFunctionName and SBTypeSynthetic.CreateWithClassName
+#   would be the "normal" way. However, if we define the function here we must
+#   register it with the name "gdb.printing.type_summary_function", and that
+#   means we must tell lldb to `script import gdb.printing` in lldbinit, which
+#   would be very confusing. The same applies to the synthetic child provider
+#   class.
+#
+# - SBTypeSummary.CreateWithScriptCode and SBTypeSynthetic.CreateWithScriptCode
+#   are uglier, but they allow us to sidestep this problem. As long as the
+#   GALA `gdb` module is in the PYTHONPATH, scripts will be able to import it
+#   and registration will just work.
+#
+#   SBTypeSummary.CreateWithScriptCode gets the body of a function (that is, NO
+#   "def function(...):", that receives the value to be printed as `valobj`.
+#
+#   SBTypeSynthetic.CreateWithScriptCode gets the body of a class (just the
+#   method definitions, no "class MyProvider:") as described in the docs.
+type_summary_function_body = """
+    import gdb
     for p in gdb.pretty_printers:
-        pp = p(gdb.Value(sbvalue.GetNonSyntheticValue()))
+        pp = p(gdb.Value(valobj.GetNonSyntheticValue()))
         if pp:
             try:
                 summary = str(pp.to_string())
@@ -41,10 +66,11 @@ def type_summary_function(sbvalue, internal_dict):
                 summary = '"%s"' % summary
             return summary
     raise RuntimeError('Could not find a pretty printer!')
+"""
 
-
-class GdbPrinterSynthProvider(object):
+synth_provider_class_body = """
     def __init__(self, sbvalue, internal_dict):
+        import gdb
         self._sbvalue = sbvalue
         self._pp = None
         self._children = []
@@ -105,6 +131,7 @@ class GdbPrinterSynthProvider(object):
                     'Value does not have a child with name "%s".' % name)
 
     def get_child_at_index(self, index):
+        import gdb
         assert hasattr(self._pp, 'children')
         if self._get_display_hint() == 'map':
             self._get_children(2 * (index + 1))
@@ -158,6 +185,8 @@ class GdbPrinterSynthProvider(object):
 
     def get_value(self):
         return self._sbvalue
+"""
+
 
 class PrettyPrinter:
     def __init__(self, name, subprinters=None):
@@ -214,10 +243,10 @@ def register_pretty_printer(obj, printer, replace=False):
         regexp = sp.regexp if hasattr(sp, 'regexp') else '^%s(<.+>)?(( )?&)?$' % sp.name
         cat.AddTypeSummary(
             lldb.SBTypeNameSpecifier(regexp, True),
-            lldb.SBTypeSummary.CreateWithFunctionName(
-                'gdb.printing.type_summary_function', type_options))
+            lldb.SBTypeSummary.CreateWithScriptCode(type_summary_function_body,
+                                                    type_options))
         cat.AddTypeSynthetic(
             lldb.SBTypeNameSpecifier(regexp, True),
-            lldb.SBTypeSynthetic.CreateWithClassName(
-                'gdb.printing.GdbPrinterSynthProvider', type_options))
+            lldb.SBTypeSynthetic.CreateWithScriptCode(
+                synth_provider_class_body, type_options))
     cat.SetEnabled(True)

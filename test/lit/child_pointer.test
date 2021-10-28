@@ -21,10 +21,9 @@
 
 ; RUN: %clangxx -g -o %t child_pointer/child_pointer.cc
 ; RUN: %lldb -b \
-; RUN:       -o 'script import gdb' \
+; RUN:       -o 'script import child_pointer' \
 ; RUN:       -o 'b main' \
 ; RUN:       -o 'r' \
-; RUN:       -o 'script import child_pointer' \
 ; RUN:       -o 'p c' \
 ; RUN:       -o 'p m' %t | FileCheck %s
 
