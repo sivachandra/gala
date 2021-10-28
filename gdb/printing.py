@@ -15,8 +15,10 @@
 ############################################################################
 
 import gdb
+import gdb.types
 import lldb
 
+import re
 import traceback
 
 def print_exc(err_msg):
@@ -109,10 +111,13 @@ class GdbPrinterSynthProvider(object):
             if index < (len(self._children) / 2):
                 key = self._children[index * 2][1]
                 val = self._children[index * 2 + 1][1]
-                key_str = key.sbvalue().GetSummary()
-                if not key_str:
-                    key_str = key.sbvalue().GetValue()
-                if not key_str:
+                if isinstance(key, gdb.Value):
+                    key_str = key.sbvalue().GetSummary()
+                    if not key_str:
+                        key_str = key.sbvalue().GetValue()
+                    if not key_str:
+                        key_str = str(key)
+                else:
                     key_str = str(key)
                 if isinstance(val, gdb.Value):
                     return self._sbvalue.CreateValueFromData(
@@ -154,6 +159,40 @@ class GdbPrinterSynthProvider(object):
     def get_value(self):
         return self._sbvalue
 
+class PrettyPrinter:
+    def __init__(self, name, subprinters=None):
+        self.enabled = True
+        self.name = name
+        self.subprinters = subprinters
+
+    def __call__(self, val):
+        raise NotImplementedError(
+                "__call__ must be defined in the PrettyPrinter subclass")
+
+class RegexpCollectionPrettyPrinter(PrettyPrinter):
+    # The Subprinter class doesn't do anything special. It just stores what's
+    # given so that gdb.register_pretty_printer() has everything it needs.
+    class Subprinter:
+        def __init__(self, name, regexp, make_printer_func):
+            self.enabled = True
+            self.name = name
+            self.regexp = regexp
+            self.compiled_regexp = re.compile(regexp)
+            self.make_printer_func = make_printer_func
+
+    def __init__(self, name):
+        super(RegexpCollectionPrettyPrinter, self).__init__(name, [])
+
+    def __call__(self, val):
+        # Match subprinter regexes and return the right subprinter object.
+        typename = gdb.types.get_basic_type(val.type).name
+        for sp in self.subprinters:
+            if sp.enabled and sp.compiled_regexp.search(typename):
+                return sp.make_printer_func(val)
+
+    def add_printer(self, name, regexp, make_printer_func):
+        self.subprinters.append(self.Subprinter(name, regexp, make_printer_func))
+
 
 def register_pretty_printer(obj, printer, replace=False):
     gdb.pretty_printers.append(printer)
@@ -170,12 +209,15 @@ def register_pretty_printer(obj, printer, replace=False):
                     lldb.eTypeOptionSkipReferences |
                     lldb.eTypeOptionHideEmptyAggregates)
     for sp in printer.subprinters:
+        # lldb needs a regexp to know when to invoke our printer. If we don't
+        # have one fall back to matching the printer name.
+        regexp = sp.regexp if hasattr(sp, 'regexp') else '^%s(<.+>)?(( )?&)?$' % sp.name
         cat.AddTypeSummary(
-            lldb.SBTypeNameSpecifier('^%s(<.+>)?(( )?&)?$' % sp.name, True),
+            lldb.SBTypeNameSpecifier(regexp, True),
             lldb.SBTypeSummary.CreateWithFunctionName(
                 'gdb.printing.type_summary_function', type_options))
         cat.AddTypeSynthetic(
-            lldb.SBTypeNameSpecifier('^%s(<.+>)?(( )?&)?$' % sp.name, True),
+            lldb.SBTypeNameSpecifier(regexp, True),
             lldb.SBTypeSynthetic.CreateWithClassName(
                 'gdb.printing.GdbPrinterSynthProvider', type_options))
     cat.SetEnabled(True)

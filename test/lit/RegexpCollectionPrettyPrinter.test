@@ -1,0 +1,33 @@
+Checks that gdb.printing.RegexpCollectionPrettyPrinter works.
+
+RUN: %clangxx -g -o %t RegexpCollectionPrettyPrinter/test_program.cc
+RUN: %lldb -b \
+RUN:       -o 'script import gdb' \
+RUN:       -o 'b main' \
+RUN:       -o 'r' \
+RUN:       -o 'script import RegexpCollectionPrettyPrinter' \
+RUN:       -o 'p p' \
+RUN:       -o 'p ti' \
+RUN:       -o 'p tf' \
+RUN:       -o 'p ts' %t | FileCheck %s
+
+skip lldb output until our first print command
+CHECK: p p
+CHECK: A pretty PlainOldStruct
+CHECK: [pretty_value] = 1111
+
+CHECK: p ti
+CHECK: A pretty TemplatedStruct of int
+CHECK: [pretty_value] = 1234
+
+Don't match the decimal part of the float to avoid depending on precision.
+CHECK: p tf
+CHECK: A pretty TemplatedStruct of float
+CHECK: [pretty_value] = 5678
+
+CHECK: p ts
+CHECK: A pretty TemplatedStruct of PlainOldStruct
+CHECK: [pretty_value] = A pretty PlainOldStruct
+CHECK: [pretty_value] = 2222
+
+
