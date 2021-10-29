@@ -1,4 +1,11 @@
-; RUN: %clangxx -g -o %t read_memory/read_memory.cc
-; RUN: %lldb -b -o 'b main' -o 'r' -o 'script import read_memory' %t | FileCheck %s
+RUN: %clangxx -g -o %t read_memory/read_memory.cc
+RUN: %lldb -b -o 'b main' -o 'r' -o 'script import read_memory' %t | FileCheck %s
+
+; skip debugger output until our script gets imported.
 CHECK: script import read_memory
+
+; read of 5 bytes should stop at Hello, and return bytes.
 CHECK: b'Hello'
+
+; string() should read the whole null-terminated string.
+CHECK: Hello, World!

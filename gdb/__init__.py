@@ -677,16 +677,32 @@ class Value(object):
     def referenced_value(self):
         return Value(self._sbvalue_object.Dereference())
 
-    def string(self, length):
-        s = ''
-        for i in range(0, length):
-            target = lldb.debugger.GetSelectedTarget()
+    def string(self, encoding='utf-8', errors='strict', length = None):
+        """Returns this value as a string.
+
+        If `length` is not given, bytes will be fetched from memory until a null
+        byte is found. The `encoding` and `errors` arguments are passed directly
+        to `bytes.decode()` to convert bytes read from memory to the final
+        result string.
+        """
+        if length is not None and length < 0:
+            raise ValueError("length argument can't be negative.")
+        target = lldb.debugger.GetSelectedTarget()
+        sberr = lldb.SBError()
+        result_bytes = b''
+        num_bytes_read = 0
+        while True:
+            if length is not None and num_bytes_read == length:
+                break
             sbaddr = lldb.SBAddress(
-                self._sbvalue_object.GetValueAsUnsigned() + i, target)
-            sberr = lldb.SBError()
-            ss = str(target.ReadMemory(sbaddr, 1, sberr))
-            s += ss
-        return s
+                self._sbvalue_object.GetValueAsUnsigned() + num_bytes_read,
+                target)
+            byte = target.ReadMemory(sbaddr, 1, sberr)
+            result_bytes += byte
+            num_bytes_read += 1
+            if length is None and byte == b'\0':
+                break
+        return result_bytes.decode(encoding, errors)
 
 
 class Command:
