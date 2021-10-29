@@ -28,6 +28,9 @@ class error(BaseException):
 pretty_printers = []
 
 
+VERSION="10.0"
+
+
 TYPE_CODE_BITSTRING = -1
 TYPE_CODE_UNDEF = 0
 TYPE_CODE_PTR = 1
