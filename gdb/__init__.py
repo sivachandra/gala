@@ -133,25 +133,6 @@ BASIC_TYPE_TO_TYPE_CODE_MAP = {
 }
 
 
-BASIC_UNSIGNED_INTEGER_TYPES = [
-    lldb.eBasicTypeUnsignedChar, lldb.eBasicTypeUnsignedWChar,
-    lldb.eBasicTypeUnsignedShort, lldb.eBasicTypeUnsignedInt,
-    lldb.eBasicTypeUnsignedLong, lldb.eBasicTypeUnsignedLongLong,
-    lldb.eBasicTypeUnsignedInt128
-]
-
-BASIC_SIGNED_INTEGER_TYPES = [
-    lldb.eBasicTypeChar, lldb.eBasicTypeSignedChar, lldb.eBasicTypeWChar,
-    lldb.eBasicTypeChar16, lldb.eBasicTypeChar32, lldb.eBasicTypeShort,
-    lldb.eBasicTypeInt, lldb.eBasicTypeLong, lldb.eBasicTypeLongLong,
-    lldb.eBasicTypeInt128
-]
-
-BASIC_FLOAT_TYPES = [
-    lldb.eBasicTypeFloat, lldb.eBasicTypeDouble, lldb.eBasicTypeLongDouble
-]
-
-
 BUILTIN_TYPE_NAME_TO_SBTYPE_MAP = {
     'char': None,
     'unsigned char': None,
@@ -335,19 +316,18 @@ class Value(object):
         return stripped_sbtype, type_class
 
     def _as_number(self):
-        sbtype, type_class = self._stripped_sbtype()
-        basic_type = sbtype.GetBasicType()
-        if type_class == lldb.eTypeClassEnumeration:
+        sbtype, _ = self._stripped_sbtype()
+        type_flags = sbtype.GetTypeFlags()
+        if type_flags & lldb.eTypeIsEnumeration:
             sbtype = sbtype.GetEnumerationIntegerType().GetCanonicalType()
-            type_class = sbtype.GetTypeClass()
+            type_flags = sbtype.GetTypeFlags()
+        if type_flags & lldb.eTypeIsPointer or type_flags & lldb.eTypeIsInteger:
+            if type_flags & lldb.eTypeIsSigned:
+                numval = self._sbvalue_object.GetValueAsSigned()
+            else:
+                numval = self._sbvalue_object.GetValueAsUnsigned()
+        elif type_flags & lldb.eTypeIsFloat:
             basic_type = sbtype.GetBasicType()
-        if ((type_class == lldb.eTypeClassPointer) or
-            (basic_type == lldb.eBasicTypeBool) or
-            (basic_type in BASIC_UNSIGNED_INTEGER_TYPES)):
-            numval = self._sbvalue_object.GetValueAsUnsigned()
-        elif basic_type in BASIC_SIGNED_INTEGER_TYPES:
-            numval = self._sbvalue_object.GetValueAsSigned()
-        elif basic_type in BASIC_FLOAT_TYPES:
             err = lldb.SBError()
             if basic_type == lldb.eBasicTypeFloat:
                 numval = self._sbvalue_object.GetData().GetFloat(err, 0)
@@ -356,15 +336,16 @@ class Value(object):
             elif basic_type == lldb.eBasicTypeLongDouble:
                 numval = self._sbvalue_object.GetData().GetLongDouble(err, 0)
             else:
-                raise RuntimeError('Something unexpected has happened.')
+                raise RuntimeError('Unknown float type %s.' % sbtype.name)
             if not err.Success():
                 raise RuntimeError(
                     'Could not convert float type value to a number:\n%s' %
                     err.GetCString())
+        elif type_flags & lldb.eTypeIsArray:
+            numval = self._sbvalue_object.GetLoadAddress()
         else:
             raise TypeError(
-                'Conversion of non-numerical/non-pointer values to numbers is '
-                'not supported.')
+                'Conversion of type %s to number is not supported.'%sbtype.name)
         return numval
 
     def _binary_op(self, other, op, reverse=False):
@@ -565,12 +546,11 @@ class Value(object):
 
     def __bool__(self):
         sbtype, type_class = self._stripped_sbtype()
-        basic_type = sbtype.GetBasicType()
-        if ((type_class == lldb.eTypeClassPointer) or
-            (type_class == lldb.eTypeClassEnumeration) or
-            (basic_type in BASIC_SIGNED_INTEGER_TYPES) or
-            (basic_type in BASIC_UNSIGNED_INTEGER_TYPES) or
-            (basic_type in BASIC_FLOAT_TYPES)):
+        type_flags = sbtype.GetTypeFlags()
+        if ((type_flags & lldb.eTypeIsPointer) or
+            (type_flags & lldb.eTypeIsEnumeration) or
+            (type_flags & lldb.eTypeIsInteger) or
+            (type_flags & lldb.eTypeIsFloat)):
             return self._as_number() != 0
         else:
             return self._sbvalue_object.IsValid()
