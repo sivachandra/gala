@@ -9,3 +9,6 @@
 ; CHECK: float_index -> 44
 ; CHECK: string_index -> ERROR
 ; CHECK: enum_index -> 66
+
+; CHECK: ptr_to_array[int_index] -> 22
+; CHECK: ptr_to_struct["my_value"] -> 99

@@ -17,3 +17,10 @@ except gdb.error:
   print("string_index -> ERROR")
 
 print("enum_index -> %d" % array[enum_index])
+
+ptr_to_array = gdb.parse_and_eval("ptr_to_array")
+print("ptr_to_array[int_index] -> %d" % ptr_to_array[int_index])
+
+ptr_to_struct = gdb.parse_and_eval("ptr_to_struct")
+print("ptr_to_struct[\"my_value\"] -> %d" % ptr_to_struct["my_value"])
+

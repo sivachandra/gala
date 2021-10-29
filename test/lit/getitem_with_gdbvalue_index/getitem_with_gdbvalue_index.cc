@@ -13,4 +13,15 @@ enum MyEnum {
 
 MyEnum enum_index = MyEnum::ENUM_INDEX;
 
+// A pointer to array, to check the pointer[integer_index] case.
+int *ptr_to_array = array;
+
+// A pointer to struct, to check the pointer["struct_member"] case.
+struct MyStruct {
+  int my_value;
+};
+
+MyStruct my_struct = {99};
+MyStruct *ptr_to_struct = &my_struct;
+
 int main() { return 0; }

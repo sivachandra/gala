@@ -478,7 +478,8 @@ class Value(object):
     def __getitem__(self, index):
         sbtype = self._sbvalue_object.GetType()
         stripped_sbtype, type_class = self._stripped_sbtype()
-        if type_class == lldb.eTypeClassPointer:
+        # If ptr["member name"], we need to dereference the pointer.
+        if type_class == lldb.eTypeClassPointer and isinstance(index, str):
             val = Value(
                 self._sbvalue_object.Cast(stripped_sbtype).Dereference())
             stripped_sbtype, type_class = val._stripped_sbtype()
@@ -491,7 +492,8 @@ class Value(object):
             if not isinstance(index, str):
                 raise KeyError('Key value used to subscript a '
                                'class/struct/union value is not a string.')
-            mem_sbval = stripped_sbval.GetChildMemberWithName(index)
+            mem_sbval = (stripped_sbval.GetNonSyntheticValue()
+                         .GetChildMemberWithName(index))
             if (not mem_sbval) or (not mem_sbval.IsValid()):
                 raise KeyError(
                     'No member with name "%s" in value of type "%s".' %
