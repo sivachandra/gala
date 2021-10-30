@@ -683,10 +683,10 @@ class Value(object):
                 self._sbvalue_object.GetValueAsUnsigned() + num_bytes_read,
                 target)
             byte = target.ReadMemory(sbaddr, 1, sberr)
-            result_bytes += byte
             num_bytes_read += 1
             if length is None and byte == b'\0':
                 break
+            result_bytes += byte
         return result_bytes.decode(encoding, errors)
 
 

@@ -6,4 +6,5 @@ print(hello)
 
 # Check that Value.string() works correctly with NUL-terminated strings.
 print(s.string())
+print(repr(s.string()))
 

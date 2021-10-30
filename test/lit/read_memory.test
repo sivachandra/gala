@@ -9,3 +9,7 @@ CHECK: b'Hello'
 
 ; string() should read the whole null-terminated string.
 CHECK: Hello, World!
+
+; check also the repr() of that last string to make sure we don't accidentally
+; include the null byte.
+CHECK: 'Hello, World!'
