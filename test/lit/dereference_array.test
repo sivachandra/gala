@@ -1,0 +1,7 @@
+RUN: %clangxx -g -o %t dereference_array/test_program.cc
+RUN: %lldb -b -o 'b main' -o 'r' -o 'script import dereference_array' %t | FileCheck %s
+
+skip until import line to avoid spurious matches with program listing output
+CHECK: script import dereference_array
+CHECK: 11
+CHECK: int

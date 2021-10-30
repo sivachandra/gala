@@ -657,6 +657,10 @@ class Value(object):
     def dereference(self):
         stripped_sbtype, _ = self._stripped_sbtype()
         stripped_sbval = self._sbvalue_object.Cast(stripped_sbtype)
+        # gdb allows calling dereference() on arrays, and it's supposed to be
+        # equivalent to *array_name.
+        if stripped_sbtype.GetTypeFlags() & lldb.eTypeIsArray:
+          return Value(stripped_sbval.GetChildAtIndex(0))
         return Value(stripped_sbval.Dereference())
 
     def referenced_value(self):
