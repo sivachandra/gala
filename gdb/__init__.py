@@ -626,6 +626,16 @@ class Value(object):
     def __rrshift__(self, other):
         return self._binary_op(other, OP_RSHIFT, reverse=True)
 
+    def __invert__(self):
+        value = self._as_number()
+        if not isinstance(value, int):
+            raise TypeError("Bad operand type for unary ~")
+        res = ~value
+        data = lldb.SBData()
+        data.SetDataFromUInt64Array([res])
+        return Value(self._sbvalue_object.CreateValueFromData(
+            '', data, get_builtin_sbtype('long')))
+
     @property
     def type(self):
         return Type(self._sbvalue_object.GetType())

@@ -1,0 +1,4 @@
+# RUN: %clangxx -g -o %t invert/test_program.cc
+# RUN: lldb -o 'script import invert' %t | FileCheck %s
+# CHECK: -16711936
+
