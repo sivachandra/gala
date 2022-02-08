@@ -28,16 +28,17 @@ def debug_print(*args, **kwargs):
 # such line.
 def insert_module_name_hack(script_code):
   lines = script_code.splitlines()
-  current_line = len(lines)-1
+  current_line = len(lines) - 1
   while current_line >= 0:
     if lines[current_line].lstrip().startswith("from __future__"):
       break
     current_line -= 1
-  lines.insert(current_line+1, '__name__ = "__main__"')
+  lines.insert(current_line + 1, '__name__ = "__main__"')
   return "\n".join(lines)
 
 
 class LLDBListenerThread(Thread):
+
   def __init__(self, debugger):
     Thread.__init__(self)
     # The object backing `lldb.debugger` is, at the time of this writing, placed
@@ -47,33 +48,33 @@ class LLDBListenerThread(Thread):
     # `SBDebugger.FindDebuggerWithID` to create a properly managed object.
     self.debugger_id = debugger.GetID()
     self.target = debugger.GetSelectedTarget()
-    self.listener = lldb.SBListener('.debug_gdb_script autoloader')
+    self.listener = lldb.SBListener(".debug_gdb_script autoloader")
     self.target.GetBroadcaster().AddListener(
         self.listener, lldb.SBTarget.eBroadcastBitModulesLoaded)
 
   def run_script_from_file(self, script_path):
-      loaded_scripts.add(script_path)
-      debugger = lldb.SBDebugger.FindDebuggerWithID(self.debugger_id)
-      ci = debugger.GetCommandInterpreter()
-      res = lldb.SBCommandReturnObject()
-      # HACK: When gdb autoloads scripts, __name__ is equal to "__main__". We
-      # want to replicate this behavior, but I've only been able to make
-      # prettyprinter scripts work reliably by using `command script import` in
-      # lldb (as opposed to, for example, `exec`ing them directly from here).
-      # So we copy the script code to a temporary file for lldb to run, and
-      # insert at the beginning a `__name__ = "__main__"` assignment.
-      script_code = insert_module_name_hack(open(script_path, "r").read())
-      # In some platforms tmp.name can't be used to open the temporary file
-      # unless the NamedTemporaryFile object has been `close`d. So we pass
-      # `delete=False`, close it, run it, and delete it manually.
-      tmp = tempfile.NamedTemporaryFile(suffix=".py", delete=False)
-      script_name = tmp.name
-      tmp.write(script_code.encode('utf-8'))
-      tmp.close()
-      debug_print("script =", script_path, " tempfile =", script_name)
-      ci.HandleCommand("command script import " + script_name, res)
-      if not DEBUG_ENABLED:  # Keep the file around if debugging.
-        os.remove(script_name)
+    loaded_scripts.add(script_path)
+    debugger = lldb.SBDebugger.FindDebuggerWithID(self.debugger_id)
+    ci = debugger.GetCommandInterpreter()
+    res = lldb.SBCommandReturnObject()
+    # HACK: When gdb autoloads scripts, __name__ is equal to "__main__". We
+    # want to replicate this behavior, but I've only been able to make
+    # prettyprinter scripts work reliably by using `command script import` in
+    # lldb (as opposed to, for example, `exec`ing them directly from here).
+    # So we copy the script code to a temporary file for lldb to run, and
+    # insert at the beginning a `__name__ = "__main__"` assignment.
+    script_code = insert_module_name_hack(open(script_path, "r").read())
+    # In some platforms tmp.name can't be used to open the temporary file
+    # unless the NamedTemporaryFile object has been `close`d. So we pass
+    # `delete=False`, close it, run it, and delete it manually.
+    tmp = tempfile.NamedTemporaryFile(suffix=".py", delete=False)
+    script_name = tmp.name
+    tmp.write(script_code.encode("utf-8"))
+    tmp.close()
+    debug_print("script =", script_path, " tempfile =", script_name)
+    ci.HandleCommand("command script import " + script_name, res)
+    if not DEBUG_ENABLED:  # Keep the file around if debugging.
+      os.remove(script_name)
 
   def process_scripts_section(self, section):
     size = section.GetFileByteSize()
@@ -100,6 +101,7 @@ class LLDBListenerThread(Thread):
           section = module.FindSection(".debug_gdb_scripts")
           if section.IsValid():
             self.process_scripts_section(section)
+
 
 def __lldb_init_module(debugger, internal_dict):
   thread = LLDBListenerThread(debugger)
