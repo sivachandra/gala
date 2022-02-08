@@ -1,6 +1,7 @@
 import lldb
 import os
 import tempfile
+import traceback
 from threading import Thread
 
 # If true, log some info to stdout.
@@ -54,27 +55,34 @@ class LLDBListenerThread(Thread):
 
   def run_script_from_file(self, script_path):
     loaded_scripts.add(script_path)
-    debugger = lldb.SBDebugger.FindDebuggerWithID(self.debugger_id)
-    ci = debugger.GetCommandInterpreter()
-    res = lldb.SBCommandReturnObject()
-    # HACK: When gdb autoloads scripts, __name__ is equal to "__main__". We
-    # want to replicate this behavior, but I've only been able to make
-    # prettyprinter scripts work reliably by using `command script import` in
-    # lldb (as opposed to, for example, `exec`ing them directly from here).
-    # So we copy the script code to a temporary file for lldb to run, and
-    # insert at the beginning a `__name__ = "__main__"` assignment.
-    script_code = insert_module_name_hack(open(script_path, "r").read())
-    # In some platforms tmp.name can't be used to open the temporary file
-    # unless the NamedTemporaryFile object has been `close`d. So we pass
-    # `delete=False`, close it, run it, and delete it manually.
-    tmp = tempfile.NamedTemporaryFile(suffix=".py", delete=False)
-    script_name = tmp.name
-    tmp.write(script_code.encode("utf-8"))
-    tmp.close()
-    debug_print("script =", script_path, " tempfile =", script_name)
-    ci.HandleCommand("command script import " + script_name, res)
-    if not DEBUG_ENABLED:  # Keep the file around if debugging.
-      os.remove(script_name)
+    try:
+      debugger = lldb.SBDebugger.FindDebuggerWithID(self.debugger_id)
+      ci = debugger.GetCommandInterpreter()
+      res = lldb.SBCommandReturnObject()
+      # HACK: When gdb autoloads scripts, __name__ is equal to "__main__". We
+      # want to replicate this behavior, but I've only been able to make
+      # prettyprinter scripts work reliably by using `command script import` in
+      # lldb (as opposed to, for example, `exec`ing them directly from here).
+      # So we copy the script code to a temporary file for lldb to run, and
+      # insert at the beginning a `__name__ = "__main__"` assignment.
+      script_code = insert_module_name_hack(open(script_path, "r").read())
+      # In some platforms tmp.name can't be used to open the temporary file
+      # unless the NamedTemporaryFile object has been `close`d. So we pass
+      # `delete=False`, close it, run it, and delete it manually.
+      tmp = tempfile.NamedTemporaryFile(suffix=".py", delete=False)
+      script_name = tmp.name
+      tmp.write(script_code.encode("utf-8"))
+      tmp.close()
+      debug_print("script =", script_path, " tempfile =", script_name)
+      ci.HandleCommand("command script import " + script_name, res)
+      if not DEBUG_ENABLED:  # Keep the file around if debugging.
+        os.remove(script_name)
+    except Exception as e:
+      # We don't want autoload to crash if an error happens. For example, some
+      # scripts might be unavailable, but we still want to autoload scripts that
+      # are actually there. So, in case of error, just log it and return.
+      debug_print("Error trying to run script at '%s'" % script_path)
+      debug_print(traceback.format_exc())
 
   def process_scripts_section(self, section):
     size = section.GetFileByteSize()
