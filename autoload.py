@@ -48,10 +48,10 @@ class LLDBListenerThread(Thread):
     # the thread runs. As a workaround, we save its ID and we later use
     # `SBDebugger.FindDebuggerWithID` to create a properly managed object.
     self.debugger_id = debugger.GetID()
-    self.target = debugger.GetSelectedTarget()
     self.listener = lldb.SBListener(".debug_gdb_script autoloader")
-    self.target.GetBroadcaster().AddListener(
-        self.listener, lldb.SBTarget.eBroadcastBitModulesLoaded)
+    self.listener.StartListeningForEventClass(
+        debugger, lldb.SBTarget.GetBroadcasterClassName(),
+        lldb.SBTarget.eBroadcastBitModulesLoaded)
 
   def run_script_from_file(self, script_path):
     loaded_scripts.add(script_path)
@@ -103,9 +103,9 @@ class LLDBListenerThread(Thread):
     while True:
       event = lldb.SBEvent()
       if self.listener.WaitForEvent(1, event):
-        num_modules = self.target.GetNumModulesFromEvent(event)
+        num_modules = lldb.SBTarget.GetNumModulesFromEvent(event)
         for i in range(num_modules):
-          module = self.target.GetModuleAtIndexFromEvent(i, event)
+          module = lldb.SBTarget.GetModuleAtIndexFromEvent(i, event)
           section = module.FindSection(".debug_gdb_scripts")
           if section.IsValid():
             self.process_scripts_section(section)

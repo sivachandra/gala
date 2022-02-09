@@ -1,0 +1,14 @@
+; RUN: %clangxx -g -o %t autoload_test/autoload_test.cc
+
+; There are two interesting things in the way we run this test:
+;
+; 1. We want to ensure autoload works correctly if we initialize it without an
+;    existing target. So we run the init command with `--one-line-before-file`.
+; 2. Autoload uses a listener thread, and in batch mode (`-b`) lldb can exit
+;    before the autoloaded script has time to run. To give it some time to run
+;    we use python to sleep lldb for a couple of seconds before quitting.
+
+; RUN: %lldb -b --one-line-before-file 'command script import autoload' \
+; RUN:          -o 'script import time' \
+; RUN:          -o 'script time.sleep(2)' %t | FileCheck %s
+; CHECK: Hi from autoload_this.py!
