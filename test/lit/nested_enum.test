@@ -1,0 +1,7 @@
+; RUN: %clangxx -g -o %t nested_enum/nested_enum.cc
+; RUN: %lldb -b -o 'b main' -o 'r' -o 'script import nested_enum' %t | FileCheck %s
+; CHECK: non_nested = VALUE
+; CHECK: non_nested_scoped = ScopedEnum::VALUE
+; CHECK: nested = Class::VALUE
+; CHECK: nested_scoped = Class::ScopedEnum::VALUE
+

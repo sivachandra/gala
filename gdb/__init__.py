@@ -462,6 +462,23 @@ class Value(object):
             return 1
 
     def __str__(self):
+        # We need to special-case nested and scoped enums because the default
+        # behavior of lldb for enum values is different from gdb. We want this:
+        # - plain:         'VALUE'
+        # - scoped:        'ScopedEnum::VALUE'
+        # - nested:        'EnclosingClass::VALUE'
+        # - nested scoped: 'EnclosingClass::ScopedEnum::VALUE'
+        t = self._sbvalue_object.GetType()
+        typename = t.GetName()
+        if (t.GetTypeClass() == lldb.eTypeClassEnumeration and
+            ('::' in typename or t.IsScopedEnumerationType())):
+          if t.IsScopedEnumerationType():
+            prefix = typename  # prefix is the whole type, nested or not.
+          else:
+            # nested but non-scoped, remove the last component from type name.
+            prefix = typename[:typename.rfind('::')]
+          return '%s::%s' % (prefix, self._sbvalue_object.GetValue())
+
         valstr = self._sbvalue_object.GetSummary()
         if not valstr:
             valstr = self._sbvalue_object.GetValue()
