@@ -792,6 +792,11 @@ def lookup_type(name, block=None):
             canonical_sbtype = t.GetCanonicalType()
             if canonical_sbtype.GetName() == name:
                 return Type(canonical_sbtype)
+    # FIXME: When building with `-funsigned-char`, lookups for `char` can fail
+    # because lldb will treat `char` as an alias of `unsigned char`. This is a
+    # bug in lldb, and this hack should be removed once it's fixed.
+    if name == 'char':
+        return lookup_type('unsigned char')
     raise RuntimeError('Type "%s" not found in %d matches.' % (name, count))
 
 

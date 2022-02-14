@@ -1,0 +1,13 @@
+; When building with `-funsigned-char` lldb won't find the type 'char' in
+; lookups because it treats it as an alias of 'unsigned char'. This test checks
+; that our workaround for this bug works.
+
+; With GALA's workaround this test prints "type char is unsigned char".
+; gdb prints "type char is char" instead, but for now we'll consider good enough
+; to have something that succeeds and returns a usable Type object even if it's
+; not perfectly equivalent.
+
+; RUN: %clangxx -g -funsigned-char -o %t unsigned_char/unsigned_char.cc
+; RUN: %lldb -b -o 'script import unsigned_char' %t | FileCheck %s
+; CHECK: type char is {{char|unsigned char}}
+
