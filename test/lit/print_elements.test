@@ -1,0 +1,7 @@
+; Checks that `gdb.parameter('print elements') returns the value of the
+; `target.max-children-count` lldb setting.
+
+; RUN: %lldb -b -o 'settings set target.max-children-count 99' \
+; RUN:          -o 'script import print_elements' | FileCheck %s
+; CHECK: gdb.parameter('print elements'): 99
+

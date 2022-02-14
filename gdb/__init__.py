@@ -725,11 +725,28 @@ class Command:
     pass
 
 
+def _RunCommand(command):
+    """Runs an LLDB command and returns its output as a string."""
+    result = lldb.SBCommandReturnObject()
+    lldb.debugger.GetCommandInterpreter().HandleCommand(command, result)
+    return result.GetOutput()
+
+def _GetSetting(s):
+    """Returns the value of setting `s` as a string."""
+    result = _RunCommand("settings show %s" % s)
+    return result.split(" = ", maxsplit=1)[1]
+
 class Parameter:
     pass
 
 
 def parameter(s):
+    # gdb's 'print elements' is used for number of array elements to print and
+    # also max number of chars in a string. lldb has 'target.max-children-count'
+    # and 'target.max-string-summary-length', but max-children-count seems like
+    # a closer match.
+    if s == "print elements":
+        return int(_GetSetting('target.max-children-count'))
     return None
 
 
