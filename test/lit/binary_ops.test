@@ -4,15 +4,19 @@
 ;CHECK: i1 + i2 = 5
 ;CHECK: i1 + 1 = 4
 ;CHECK: 1 + i2 = 3
+
 ;CHECK: i1 - i2 = 1
 ;CHECK: i1 - 1 = 2
 ;CHECK: 1 - i2 = -1
+
 ;CHECK: i1 * i2 = 6
 ;CHECK: i1 * 1 = 3
 ;CHECK: 1 * i2 = 2
+
 ;CHECK: i1 / i2 = {{1$}}
 ;CHECK: i1 / 1 = {{3$}}
 ;CHECK: 1 / i2 = {{0$}}
+
 ;CHECK: f1 + f2 = 5.5
 ;CHECK: f1 + 1.0 = 4.25
 ;CHECK: 1.0 + f2 = 3.25
@@ -21,6 +25,7 @@
 ;CHECK: 1.0 + d2 = 3.5
 ;CHECK: f1 + d2 = 5.75
 ;CHECK: d1 + f2 = 5.75
+
 ;CHECK: f1 - f2 = 1
 ;CHECK: f1 - 1.0 = 2.25
 ;CHECK: 1.0 - f2 = -1.25
@@ -29,6 +34,7 @@
 ;CHECK: 1.0 - d2 = -1.5
 ;CHECK: f1 - d2 = 0.75
 ;CHECK: d1 - f2 = 1.25
+
 ;CHECK: f1 * f2 = 7.3125
 ;CHECK: f1 * 1.0 = 3.25
 ;CHECK: 1.0 * f2 = 2.25
@@ -37,6 +43,7 @@
 ;CHECK: 1.0 * d2 = 2.5
 ;CHECK: f1 * d2 = 8.125
 ;CHECK: d1 * f2 = 7.875
+
 ;CHECK: f1 / f2 = 1.44
 ;CHECK: i1 / f1 = 0.92
 ;CHECK: f1 / i1 = 1.08
@@ -47,3 +54,6 @@
 ;CHECK: 1.0 / d2 = 0.40
 ;CHECK: f1 / d2 = 1.30
 ;CHECK: d1 / f2 = 1.56
+
+;CHECK: type(p2 - p1) = long
+;CHECK: p2 - p1 = 3

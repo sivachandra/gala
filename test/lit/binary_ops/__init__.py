@@ -113,3 +113,10 @@ print("1.0 / d2 =", "%.2f"%(1.0 / d2))
 print("f1 / d2 =", "%.2f"%(f1 / d2))
 print("d1 / f2 =", "%.2f"%(d1 / f2))
 
+
+# Pointer difference
+p1 = gdb.parse_and_eval("p1")
+p2 = gdb.parse_and_eval("p2")
+print("type(p2 - p1) =", (p2 - p1).type)
+print("p2 - p1 =", p2 - p1)
+

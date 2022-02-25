@@ -402,7 +402,7 @@ class Value(object):
                             raise TypeError('Arithmetic operation on '
                                             'incompatible pointer types.')
                         diff = self._as_number() - other_val
-                        return diff / sbtype.GetPointeeType().GetByteSize()
+                        res = diff // sbtype.GetPointeeType().GetByteSize()
                     else:
                         return self._binary_op(- other_val, OP_ADD)
                 else:
