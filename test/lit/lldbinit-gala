@@ -1,0 +1,2 @@
+command script import gdb
+command script import gdb.printing

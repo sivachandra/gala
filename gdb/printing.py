@@ -27,65 +27,72 @@ def print_exc(err_msg):
     print('<<< --- >>>')
 
 
-# We use the same type summary and synthetic child provider logic for all gdb
-# pretty printers. They are just a generic layer that interfaces with the gdb
-# script that defines the actual pretty printer.
-#
-# There are two ways this could be done, and this area is very sparsely
-# documented, so I'm going to describe some details here:
-#
-# - SBTypeSummary.CreateWithFunctionName and SBTypeSynthetic.CreateWithClassName
-#   would be the "normal" way. However, if we define the function here we must
-#   register it with the name "gdb.printing.type_summary_function", and that
-#   means we must tell lldb to `script import gdb.printing` in lldbinit, which
-#   would be very confusing. The same applies to the synthetic child provider
-#   class.
-#
-# - SBTypeSummary.CreateWithScriptCode and SBTypeSynthetic.CreateWithScriptCode
-#   are uglier, but they allow us to sidestep this problem. As long as the
-#   GALA `gdb` module is in the PYTHONPATH, scripts will be able to import it
-#   and registration will just work.
-#
-#   SBTypeSummary.CreateWithScriptCode gets the body of a function (that is, NO
-#   "def function(...):", that receives the value to be printed as `valobj`.
-#
-#   SBTypeSynthetic.CreateWithScriptCode gets the body of a class (just the
-#   method definitions, no "class MyProvider:") as described in the docs.
-type_summary_function_body = """
-    import gdb
-    for p in gdb.pretty_printers:
-        pp = p(gdb.Value(valobj.GetNonSyntheticValue()))
-        if pp:
-            try:
-                summary = str(pp.to_string())
-            except:
-                print_exc('Error calling "to_string" method of a '
-                          'GDB pretty printer.')
-                summary = ''
-            if hasattr(pp, 'display_hint') and pp.display_hint() == 'string':
-                summary = '"%s"' % summary
-            return summary
-    raise RuntimeError('Could not find a pretty printer!')
-"""
+# Note that we must register this as `gdb.printing.type_summary_function`, which
+# in turn requires us to `script import gdb.printing` in lldbinit. We already
+# need lldbinit modifications since we added autoload, though.
+def type_summary_function(valobj, internal_dict):
+    old_target = gdb.gala_set_current_target(valobj.GetTarget())
+    try:
+        for p in gdb.pretty_printers:
+            pp = p(gdb.Value(valobj.GetNonSyntheticValue()))
+            if pp:
+                try:
+                    summary = str(pp.to_string())
+                except:
+                    gdb.printing.print_exc(
+                        'Error calling "to_string" method of a '
+                        'GDB pretty printer.')
+                    summary = ''
+                if (hasattr(pp, 'display_hint') and
+                    pp.display_hint() == 'string'):
+                    summary = '"%s"' % summary
+                return summary
+        raise RuntimeError('Could not find a pretty printer!')
+    finally:
+        gdb.gala_set_current_target(old_target)
 
-synth_provider_class_body = """
+def set_current_target(f):
+    '''Decorator that sets the current target for the SBValue being printed.
+
+    lldb supports multiple debuggers and multiple targets, so we need to get
+    the right ones from the value we're trying to print.
+    '''
+    from functools import wraps
+    @wraps(f)
+    def wrapper(self, *args):
+        # Keep the old target so that decorated functions can call other
+        # decorated functions and still reset the current target at the end.
+        old_target = gdb.gala_set_current_target(self._sbvalue.GetTarget())
+        try:
+            return f(self, *args)
+        finally:
+            gdb.gala_set_current_target(old_target)
+    return wrapper
+
+
+class GdbPrinterSynthProvider:
     def __init__(self, sbvalue, internal_dict):
-        import gdb
         self._sbvalue = sbvalue
         self._pp = None
         self._children = []
         self._children_iterator = None
         self._iter_count = 0
+        self.find_pretty_printer()
+
+    @set_current_target
+    def find_pretty_printer(self):
         for p in gdb.pretty_printers:
             try:
                 self._pp = p(gdb.Value(self._sbvalue))
             except:
-                print_exc('Error calling into GDB printer "%s".' % p.name)
+                gdb.printing.print_exc(
+                    'Error calling into GDB printer "%s".' % p.name)
             if self._pp:
                 break
         if not self._pp:
             raise RuntimeError('Could not find a pretty printer!')
 
+    @set_current_target
     def _get_children(self, max_count):
         if len(self._children) >= max_count:
             return
@@ -95,8 +102,8 @@ synth_provider_class_body = """
             try:
                 self._children_iterator = self._pp.children()
             except:
-                print_exc('Error calling "children" method of a '
-                          'GDB pretty printer.')
+                gdb.printing.print_exc('Error calling "children" method of a '
+                                       'GDB pretty printer.')
                 return
 
         try:
@@ -108,12 +115,15 @@ synth_provider_class_body = """
                 self._children.append(next_child)
                 self._iter_count += 1
         except:
-            print_exc('Error iterating over pretty printer children.')
+            gdb.printing.print_exc(
+                'Error iterating over pretty printer children.')
 
+    @set_current_target
     def _get_display_hint(self):
         if hasattr(self._pp, 'display_hint'):
             return self._pp.display_hint()
 
+    @set_current_target
     def num_children(self, max_count):
         if self._get_display_hint() == 'map':
             self._get_children(2 * max_count)
@@ -122,6 +132,7 @@ synth_provider_class_body = """
             self._get_children(max_count)
             return min(len(self._children), max_count)
 
+    @set_current_target
     def get_child_index(self, name):
         if self._get_display_hint() == 'array':
             try:
@@ -130,8 +141,8 @@ synth_provider_class_body = """
                 raise NameError(
                     'Value does not have a child with name "%s".' % name)
 
+    @set_current_target
     def get_child_at_index(self, index):
-        import gdb
         assert hasattr(self._pp, 'children')
         if self._get_display_hint() == 'map':
             self._get_children(2 * (index + 1))
@@ -156,7 +167,7 @@ synth_provider_class_body = """
                     return self._sbvalue.CreateValueFromData(
                         '[%s]' % key_str,
                         data,
-                        lldb.debugger.GetSelectedTarget().FindFirstType('int'))
+                        gdb.gala_get_current_target().FindFirstType('int'))
         else:
             self._get_children(index + 1)
             if index < len(self._children):
@@ -167,7 +178,7 @@ synth_provider_class_body = """
                     return self._sbvalue.CreateValueFromData(
                         c[0],
                         data,
-                        lldb.debugger.GetSelectedTarget().FindFirstType('int'))
+                        gdb.gala_get_current_target().FindFirstType('int'))
                 else:
                     return self._sbvalue.CreateValueFromData(
                         c[0],
@@ -175,17 +186,19 @@ synth_provider_class_body = """
                 return sbvalue
         raise IndexError('Child not present at given index.')
 
+    @set_current_target
     def update(self):
         self._children = []
         self._children_iterator = None
         self._iter_count = 0
 
+    @set_current_target
     def has_children(self):
         return hasattr(self._pp, 'children')
 
+    @set_current_target
     def get_value(self):
         return self._sbvalue
-"""
 
 
 class PrettyPrinter:
@@ -225,14 +238,14 @@ class RegexpCollectionPrettyPrinter(PrettyPrinter):
 
 def register_pretty_printer(obj, printer, replace=False):
     gdb.pretty_printers.append(printer)
-    if lldb.debugger.GetCategory(printer.name).IsValid():
+    if gdb.gala_get_current_debugger().GetCategory(printer.name).IsValid():
         if replace:
-            lldb.debugger.DeleteCategory(printer.name)
+            gdb.gala_get_current_debugger().DeleteCategory(printer.name)
         else:
             raise RuntimeError(
                 'WARNING: A type category with name "%s" already exists.' %
                 printer.name)
-    cat = lldb.debugger.CreateCategory(printer.name)
+    cat = gdb.gala_get_current_debugger().CreateCategory(printer.name)
     type_options = (lldb.eTypeOptionCascade |
                     lldb.eTypeOptionSkipPointers |
                     lldb.eTypeOptionSkipReferences |
@@ -243,10 +256,10 @@ def register_pretty_printer(obj, printer, replace=False):
         regexp = sp.regexp if hasattr(sp, 'regexp') else '^%s(<.+>)?(( )?&)?$' % sp.name
         cat.AddTypeSummary(
             lldb.SBTypeNameSpecifier(regexp, True),
-            lldb.SBTypeSummary.CreateWithScriptCode(type_summary_function_body,
-                                                    type_options))
+            lldb.SBTypeSummary.CreateWithFunctionName(
+                'gdb.printing.type_summary_function', type_options))
         cat.AddTypeSynthetic(
             lldb.SBTypeNameSpecifier(regexp, True),
-            lldb.SBTypeSynthetic.CreateWithScriptCode(
-                synth_provider_class_body, type_options))
+            lldb.SBTypeSynthetic.CreateWithClassName(
+                'gdb.printing.GdbPrinterSynthProvider', type_options))
     cat.SetEnabled(True)

@@ -14,4 +14,4 @@ config.environment['PYTHONPATH'] = os.pathsep.join([str(gala_directory)])
 # Substitutions for common tools. Assume them to be in the PATH for now.
 config.substitutions.append( ('%clangxx', 'clang++') )
 config.substitutions.append( ('%clang', 'clang') )
-config.substitutions.append( ('%lldb', 'lldb') )
+config.substitutions.append( ('%lldb', 'lldb -S lldbinit-gala') )

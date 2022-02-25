@@ -27,6 +27,41 @@ class error(BaseException):
 
 pretty_printers = []
 
+default_debugger = None
+current_target = None
+
+
+# lldb allows for multiple debuggers and targets to exist at the same time. It
+# also allows to print values from targets not currently selected. So we
+# shouldn't rely on `lldb.debugger` or `lldb.debugger.GetSelectedTarget()`.
+# Instead, we use the `SBValue` we're currently trying to print as the main
+# source of truth.
+#
+# NOTE: we also need a debugger for prettyprinter registration, so we save
+# `default_debugger` set from `__lldb_init_module`, and will be used when there
+# is no `current_target` set from a prettyprinter.
+def gala_set_current_target(sbtarget):
+  global current_target
+  old_target = current_target
+  current_target = sbtarget
+  return old_target
+
+
+def gala_reset_current_target():
+  global current_target
+  current_target = None
+
+
+def gala_get_current_target():
+  # If we aren't called from a prettyprinter, use lldb.target as a fallback.
+  # This is useful, for example, in our unit tests that just import gdb and run
+  # gdb.parse_and_eval("whatever") to test properties of `gdb.Value` objects.
+  return current_target if current_target else lldb.target
+
+
+def gala_get_current_debugger():
+  return current_target.GetDebugger() if current_target else default_debugger
+
 
 VERSION="10.0"
 
@@ -135,31 +170,31 @@ BASIC_TYPE_TO_TYPE_CODE_MAP = {
     lldb.eBasicTypeOther:TYPE_CODE_UNDEF,
 }
 
-
-BUILTIN_TYPE_NAME_TO_SBTYPE_MAP = {
-    'char': None,
-    'unsigned char': None,
-    'short': None,
-    'unsigned short': None,
-    'int': None,
-    'unsigned': None,
-    'unsigned int': None,
-    'long': None,
-    'unsigned long': None,
-    'long long': None,
-    'unsigned long long': None,
-    'float': None,
-    'double': None,
-    'long double': None
+BUILTIN_TYPE_NAME_TO_BASIC_TYPE = {
+    'void': lldb.eBasicTypeVoid,
+    'char': lldb.eBasicTypeChar,
+    'signed char': lldb.eBasicTypeSignedChar,
+    'unsigned char': lldb.eBasicTypeUnsignedChar,
+    'short': lldb.eBasicTypeShort,
+    'unsigned short': lldb.eBasicTypeUnsignedShort,
+    'int': lldb.eBasicTypeInt,
+    'unsigned': lldb.eBasicTypeUnsignedInt,
+    'unsigned int': lldb.eBasicTypeUnsignedInt,
+    'long': lldb.eBasicTypeLong,
+    'unsigned long': lldb.eBasicTypeUnsignedLong,
+    'long long': lldb.eBasicTypeLongLong,
+    'unsigned long long': lldb.eBasicTypeUnsignedLongLong,
+    'bool': lldb.eBasicTypeBool,
+    'float': lldb.eBasicTypeFloat,
+    'double': lldb.eBasicTypeDouble,
+    'long double': lldb.eBasicTypeLongDouble,
+    'nullptr_t': lldb.eBasicTypeNullPtr,
 }
 
+
 def get_builtin_sbtype(typename):
-    sbtype = BUILTIN_TYPE_NAME_TO_SBTYPE_MAP.get(typename)
-    if not sbtype:
-        target = lldb.debugger.GetSelectedTarget()
-        sbtype = target.FindFirstType(typename)
-        BUILTIN_TYPE_NAME_TO_SBTYPE_MAP[typename] = sbtype
-    return sbtype
+    return gala_get_current_target().GetBasicType(
+        BUILTIN_TYPE_NAME_TO_BASIC_TYPE[typename])
 
 
 class EnumField(object):
@@ -168,7 +203,7 @@ class EnumField(object):
         self.enumval = enumval
         self.type = type
         self.is_base_class = False
-    
+
 
 class MemberField(object):
     def __init__(self, name, type, bitsize, parent_type):
@@ -703,7 +738,7 @@ class Value(object):
         """
         if length is not None and length < 0:
             raise ValueError("length argument can't be negative.")
-        target = lldb.debugger.GetSelectedTarget()
+        target = gala_get_current_target()
         sberr = lldb.SBError()
         result_bytes = b''
         num_bytes_read = 0
@@ -728,7 +763,15 @@ class Command:
 def _RunCommand(command):
     """Runs an LLDB command and returns its output as a string."""
     result = lldb.SBCommandReturnObject()
-    lldb.debugger.GetCommandInterpreter().HandleCommand(command, result)
+    target = gala_get_current_target()
+    # Run the command in the context of the currently selected frame to behave
+    # as if we were running it from the command line. Note that there may be
+    # no process (the user can print globals before running the program, for
+    # example), so we default to just the target in that case.
+    execution_context = lldb.SBExecutionContext(target.GetProcess(
+    ).GetSelectedThread().GetSelectedFrame() if target.GetProcess() else target)
+    gala_get_current_debugger().GetCommandInterpreter().HandleCommand(
+        command, execution_context, result)
     return result.GetOutput()
 
 def _GetSetting(s):
@@ -768,12 +811,12 @@ class Inferior:
 
 
 def selected_inferior():
-    return Inferior(lldb.debugger.GetSelectedTarget().GetProcess())
+    return Inferior(gala_get_current_target().GetProcess())
 
 
 def parse_and_eval(expr):
     opts = lldb.SBExpressionOptions()
-    sbvalue = lldb.debugger.GetSelectedTarget().EvaluateExpression(expr, opts)
+    sbvalue = gala_get_current_target().EvaluateExpression(expr, opts)
     if sbvalue and sbvalue.IsValid():
         return Value(sbvalue)
     return RuntimeError('Unable to evaluate "%s".', expr)
@@ -782,7 +825,7 @@ def parse_and_eval(expr):
 def lookup_type(name, block=None):
     chunks = name.split('::')
     unscoped_name = chunks[-1]
-    typelist = lldb.debugger.GetSelectedTarget().FindTypes(unscoped_name)
+    typelist = gala_get_current_target().FindTypes(unscoped_name)
     count = typelist.GetSize()
     for i in range(count):
         t = typelist.GetTypeAtIndex(i)
@@ -813,3 +856,8 @@ def default_visualizer(value):
         pp = p(value)
         if pp:
             return pp
+
+
+def __lldb_init_module(debugger, internal_dict):
+    global default_debugger
+    default_debugger = debugger
