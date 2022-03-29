@@ -22,7 +22,7 @@ class error(BaseException):
         self.msg = msg
 
     def __str__(self):
-        return "gdb.error: %s"%msg
+        return self.msg
 
 
 pretty_printers = []
@@ -545,22 +545,27 @@ class Value(object):
             type_class == lldb.eTypeClassStruct or
             type_class == lldb.eTypeClassUnion):
             if not isinstance(index, str):
-                raise KeyError('Key value used to subscript a '
-                               'class/struct/union value is not a string.')
+                raise error('Key value used to subscript a '
+                            'class/struct/union value is not a string.')
             mem_sbval = (stripped_sbval.GetNonSyntheticValue()
                          .GetChildMemberWithName(index))
             if (not mem_sbval) or (not mem_sbval.IsValid()):
-                raise KeyError(
+                raise error(
                     'No member with name "%s" in value of type "%s".' %
                     (index, sbtype.GetName()))
             return Value(mem_sbval)
 
-        if not isinstance(index, int):
-            # The index can also be a numeric gdb.Value.
-            try:
-              index = int(index)
-            except TypeError:
-              raise error("Value can't be converted to integer.")
+        # Not a struct/class/union.
+        if isinstance(index, str):
+          raise error('Attempt to extract a component of a value that is not a '
+                      'struct/class/union.')
+
+        if isinstance(index, Value):
+          # The index can also be a numeric gdb.Value.
+          try:
+            index = int(index)
+          except:
+            raise error("Value can't be converted to integer.")
 
         if type_class == lldb.eTypeClassPointer:
             addr = self._sbvalue_object.GetValueAsUnsigned()
@@ -569,8 +574,8 @@ class Value(object):
             addr = self._sbvalue_object.GetLoadAddress()
             elem_sbtype = self._sbvalue_object.GetType().GetArrayElementType()
         else:
-            raise TypeError('Cannot use "[]" operator on values of type "%s".' %
-                            str(sbtype))
+            raise error('Cannot subscript something of type `%s`.' %
+                        str(sbtype))
         new_addr = addr + index * elem_sbtype.GetByteSize()
         return Value(self._sbvalue_object.CreateValueFromAddress(
              "", new_addr, elem_sbtype))
