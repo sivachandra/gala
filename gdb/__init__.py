@@ -197,6 +197,25 @@ def get_builtin_sbtype(typename):
         BUILTIN_TYPE_NAME_TO_BASIC_TYPE[typename])
 
 
+def _format_enum_value_name(enum_sbtype, name):
+    # We need to special-case nested and scoped enums because the default
+    # behavior of lldb for enum values is different from gdb. We want this:
+    # - plain:         'VALUE'
+    # - scoped:        'ScopedEnum::VALUE'
+    # - nested:        'EnclosingClass::VALUE'
+    # - nested scoped: 'EnclosingClass::ScopedEnum::VALUE'
+    typename = enum_sbtype.GetName()
+    if '::' in typename or enum_sbtype.IsScopedEnumerationType():
+      if enum_sbtype.IsScopedEnumerationType():
+        prefix = typename  # prefix is the whole type, nested or not.
+      else:
+        # nested but non-scoped, remove the last component from type name.
+        prefix = typename[:typename.rfind('::')]
+      return '%s::%s' % (prefix, name)
+    else:
+      return name
+
+
 class EnumField(object):
     def __init__(self, name, enumval, type):
         self.name = name
@@ -318,7 +337,9 @@ class Type(object):
             enum_list = self._sbtype_object.GetEnumMembers()
             for i in range(0, enum_list.GetSize()):
                 e = enum_list.GetTypeEnumMemberAtIndex(i)
-                fields.append(EnumField(e.GetName(),
+                field_name = _format_enum_value_name(self._sbtype_object,
+                                                     e.GetName())
+                fields.append(EnumField(field_name,
                                         e.GetValueAsSigned(),
                                         Type(e.GetType())))
         elif (type_class == lldb.eTypeClassUnion or
@@ -497,22 +518,17 @@ class Value(object):
             return 1
 
     def __str__(self):
-        # We need to special-case nested and scoped enums because the default
-        # behavior of lldb for enum values is different from gdb. We want this:
-        # - plain:         'VALUE'
-        # - scoped:        'ScopedEnum::VALUE'
-        # - nested:        'EnclosingClass::VALUE'
-        # - nested scoped: 'EnclosingClass::ScopedEnum::VALUE'
+        # For values of enum types we need to check if the value is one of the
+        # enumerators in order to return a properly-formatted name. However, if
+        # it's any other random integer value we just print the number.
         t = self._sbvalue_object.GetType()
-        typename = t.GetName()
-        if (t.GetTypeClass() == lldb.eTypeClassEnumeration and
-            ('::' in typename or t.IsScopedEnumerationType())):
-          if t.IsScopedEnumerationType():
-            prefix = typename  # prefix is the whole type, nested or not.
-          else:
-            # nested but non-scoped, remove the last component from type name.
-            prefix = typename[:typename.rfind('::')]
-          return '%s::%s' % (prefix, self._sbvalue_object.GetValue())
+        if t.GetTypeClass() == lldb.eTypeClassEnumeration:
+            enum_list = t.GetEnumMembers()
+            for i in range(enum_list.GetSize()):
+                e = enum_list.GetTypeEnumMemberAtIndex(i)
+                if self._as_number() == e.GetValueAsSigned():
+                    return _format_enum_value_name(t, e.GetName())
+            return str(self._as_number())
 
         valstr = self._sbvalue_object.GetSummary()
         if not valstr:
