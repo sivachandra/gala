@@ -1,0 +1,16 @@
+; RUN: %clangxx -g -fstandalone-debug -o %t str_pointer/test_program.cc
+; RUN: %lldb -b -o 'b main' -o 'r' -o 'script import str_pointer' %t | FileCheck %s
+
+; gdb will also print a little summary of what the pointer points to after the
+; address, like this:
+;
+;     int_pointer = 0x404060 <i>
+;     char_pointer = 0x402004 "literal string"
+;     string_pointer = 0x404090 <s[abi:cxx11]>
+;
+; our implementation of gdb.Value.__str__() doesn't do that. For now just check
+; that we get the pointer values.
+
+; CHECK: int_pointer = 0x{{[0-9a-f]+}}
+; CHECK: char_pointer = 0x{{[0-9a-f]+}}
+; CHECK: string_pointer = 0x{{[0-9a-f]+}}

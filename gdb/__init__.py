@@ -530,6 +530,13 @@ class Value(object):
                     return _format_enum_value_name(t, e.GetName())
             return str(self._as_number())
 
+        # For pointers, make sure we always print the numeric value.
+        # TODO: print a summary of what the pointer points to (for example,
+        # `0x404060 <i>`), like gdb does.
+        type_flags = t.GetTypeFlags()
+        if type_flags & lldb.eTypeIsPointer:
+            return "0x%x" % self._as_number()
+
         valstr = self._sbvalue_object.GetSummary()
         if not valstr:
             valstr = self._sbvalue_object.GetValue()
