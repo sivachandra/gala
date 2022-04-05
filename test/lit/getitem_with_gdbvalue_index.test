@@ -1,4 +1,4 @@
-; Check that you can pass a numeric gdb.Value to __getitem__.
+; Check that __getitem__ works correctly with different index types.
 
 ; RUN: %clangxx -g -o %t getitem_with_gdbvalue_index/getitem_with_gdbvalue_index.cc
 ; RUN: %lldb -b -o 'b main' -o 'r' -o 'script import getitem_with_gdbvalue_index' %t | FileCheck %s
@@ -16,6 +16,7 @@
 
 ; CHECK: ptr_to_array[Value(int)] -> 22
 ; CHECK: ptr_to_struct[str] -> 99
+; CHECK: struct_array[str] -> 1234
 
 ; CHECK: value(int)[int] -> gdb.error
 ; CHECK: value(int)[value(int)] -> gdb.error

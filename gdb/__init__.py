@@ -555,15 +555,22 @@ class Value(object):
 
     def __getitem__(self, index):
         sbtype = self._sbvalue_object.GetType()
-        stripped_sbtype, type_class = self._stripped_sbtype()
-        # If ptr["member name"], we need to dereference the pointer.
-        if type_class == lldb.eTypeClassPointer and isinstance(index, str):
-            val = Value(
-                self._sbvalue_object.Cast(stripped_sbtype).Dereference())
-            stripped_sbtype, type_class = val._stripped_sbtype()
-            stripped_sbval = val.sbvalue().Cast(stripped_sbtype)
+        # Keep the value to print in `val`. It's not always `self`:
+        # - If ptr["member name"], we need to dereference the pointer.
+        # - If array["member name"], decay to pointer and dereference.
+        val = self
+        if (sbtype.GetTypeClass() == lldb.eTypeClassPointer and
+            isinstance(index, str)):
+            val = Value(self._sbvalue_object.Dereference())
+        elif (sbtype.GetTypeClass() == lldb.eTypeClassArray and
+              isinstance(index, str)):
+            val = Value(self._sbvalue_object.GetChildAtIndex(0))
         else:
-            stripped_sbval = self._sbvalue_object.Cast(stripped_sbtype)
+            val = self
+
+        stripped_sbtype, type_class = val._stripped_sbtype()
+        stripped_sbval = val.sbvalue().Cast(stripped_sbtype)
+
         if (type_class == lldb.eTypeClassClass or
             type_class == lldb.eTypeClassStruct or
             type_class == lldb.eTypeClassUnion):

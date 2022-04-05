@@ -23,5 +23,6 @@ struct MyStruct {
 
 MyStruct my_struct = {99};
 MyStruct *ptr_to_struct = &my_struct;
+MyStruct struct_array[2]= {{1234}, {5678}};
 
 int main() { return 0; }

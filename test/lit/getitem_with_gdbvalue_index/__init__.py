@@ -40,6 +40,10 @@ print("ptr_to_array[Value(int)] -> %d" % ptr_to_array[int_index])
 ptr_to_struct = gdb.parse_and_eval("ptr_to_struct")
 print("ptr_to_struct[str] -> %d" % ptr_to_struct["my_value"])
 
+# value["member_name"] on array of structs
+struct_array = gdb.parse_and_eval("struct_array")
+print("struct_array[str] -> %d" % struct_array["my_value"])
+
 # getitem on incorrect types
 one = gdb.parse_and_eval("1")
 member = gdb.parse_and_eval('"member"')
