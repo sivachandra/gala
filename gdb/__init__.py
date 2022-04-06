@@ -559,11 +559,11 @@ class Value(object):
         # - If ptr["member name"], we need to dereference the pointer.
         # - If array["member name"], decay to pointer and dereference.
         val = self
-        if (sbtype.GetTypeClass() == lldb.eTypeClassPointer and
-            isinstance(index, str)):
+        if (sbtype.GetCanonicalType().GetTypeClass() == lldb.eTypeClassPointer
+            and isinstance(index, str)):
             val = Value(self._sbvalue_object.Dereference())
-        elif (sbtype.GetTypeClass() == lldb.eTypeClassArray and
-              isinstance(index, str)):
+        elif (sbtype.GetCanonicalType().GetTypeClass() == lldb.eTypeClassArray
+              and isinstance(index, str)):
             val = Value(self._sbvalue_object.GetChildAtIndex(0))
         else:
             val = self

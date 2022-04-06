@@ -16,7 +16,9 @@
 
 ; CHECK: ptr_to_array[Value(int)] -> 22
 ; CHECK: ptr_to_struct[str] -> 99
+; CHECK: typedefed_ptr_to_struct[str] -> 42
 ; CHECK: struct_array[str] -> 1234
+; CHECK: typedefed_struct_array[str] -> 1234
 
 ; CHECK: value(int)[int] -> gdb.error
 ; CHECK: value(int)[value(int)] -> gdb.error
