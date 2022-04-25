@@ -70,6 +70,21 @@ def set_current_target(f):
     return wrapper
 
 
+def _named_sbvalue(name, v):
+    '''Creates an SBValue equivalent to `val`, but with name `name`.
+
+    For a child provider we want to create children with the appropriate name,
+    because these value names are shown as keys. However, the SB API doesn't
+    provide a way to clone an existing SBValue with a different name. So we use
+    CreateValueFromAddress if possible (so that we can call AddressOf() on the
+    children values, for example), and fall back to CreateValueFromData if not.
+    '''
+    if v.GetLoadAddress() != lldb.LLDB_INVALID_ADDRESS:
+        return v.CreateValueFromAddress(name, v.GetLoadAddress(), v.GetType())
+    else:
+        return v.CreateValueFromData(name, v.GetData(), v.GetType())
+
+
 class GdbPrinterSynthProvider:
     def __init__(self, sbvalue, internal_dict):
         self._sbvalue = sbvalue
@@ -158,9 +173,7 @@ class GdbPrinterSynthProvider:
                 else:
                     key_str = str(key)
                 if isinstance(val, gdb.Value):
-                    return self._sbvalue.CreateValueFromData(
-                        '[%s]' % key_str,
-                        val.sbvalue().GetData(), val.sbvalue().GetType())
+                    return _named_sbvalue('[%s]' % key_str, val.sbvalue())
                 else:
                     data = lldb.SBData()
                     data.SetDataFromUInt64Array([int(val)])
@@ -180,10 +193,7 @@ class GdbPrinterSynthProvider:
                         data,
                         gdb.gala_get_current_target().FindFirstType('int'))
                 else:
-                    return self._sbvalue.CreateValueFromData(
-                        c[0],
-                        c[1].sbvalue().GetData(), c[1].sbvalue().GetType())
-                return sbvalue
+                    return _named_sbvalue(c[0], c[1].sbvalue())
         raise IndexError('Child not present at given index.')
 
     @set_current_target

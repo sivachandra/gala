@@ -1,0 +1,15 @@
+; Checks that when a pretty printer returns a child object corresponding to
+; an existing program object (i.e. it's not synthesized just for printing),
+; the returned child object has a valid memory address.
+
+; RUN: %clangxx -g -o %t child_address/child_address.cc
+; RUN: %lldb -b \
+; RUN:       -o 'script import child_address' \
+; RUN:       -o 'b main' \
+; RUN:       -o 'r' \
+; RUN:       -o 'p obj' %t | FileCheck %s
+
+; skip lldb output until our print command
+; CHECK: p obj
+; CHECK: MyChild node at address 0x{{[0-9a-f]+}}
+
