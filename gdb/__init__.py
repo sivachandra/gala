@@ -744,7 +744,19 @@ class Value(object):
         if is_baseclass:
             return Value(self._sbvalue_object.CreateChildAtOffset(
                 self._sbvalue_object.GetName(), offset, target_sbtype))
-        return Value(self._sbvalue_object.Cast(gdbtype.sbtype()))
+        # SBValue::Cast doesn't work correctly when casting an integer value to
+        # a larger type (for example, char -> int). Performing such a cast
+        # results in a garbage value from reading adjacent memory.
+        #
+        # Some prettyprinters do this kind of cast to prevent the debugger from
+        # printing as 'A' an uint8_t variable known to be used as a number.
+        if (self_sbtype.GetTypeFlags() & lldb.eTypeIsInteger and
+            target_sbtype.GetTypeFlags() & lldb.eTypeIsInteger and
+            self_sbtype.GetByteSize() < target_sbtype.GetByteSize()):
+            result = gala_get_current_target().CreateValueFromExpression(
+                self._sbvalue_object.GetName(), str(self._as_number()))
+            return Value(result)
+        return Value(self._sbvalue_object.Cast(target_sbtype))
 
     def reinterpret_cast(self, gdbtype):
         # lldb SBValue.Cast should work correctly to cast between pointer types.

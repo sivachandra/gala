@@ -1,0 +1,4 @@
+; RUN: %clangxx -g -o %t int_cast/int_cast.cc
+; RUN: %lldb -b -o 'b main' -o 'r' -o 'script import int_cast' %t | FileCheck %s
+CHECK: (int)b1: 1
+CHECK: (int)s1: 5
