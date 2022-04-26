@@ -53,10 +53,16 @@ def gala_reset_current_target():
 
 
 def gala_get_current_target():
-  # If we aren't called from a prettyprinter, use lldb.target as a fallback.
+  # If we aren't called from a prettyprinter, fall back to the current target.
   # This is useful, for example, in our unit tests that just import gdb and run
   # gdb.parse_and_eval("whatever") to test properties of `gdb.Value` objects.
   return current_target if current_target else lldb.target
+  if current_target:
+    return current_target
+  elif gala_get_current_debugger():
+    return gala_get_current_debugger().GetSelectedTarget()
+  else:
+    return None
 
 
 def gala_get_current_debugger():
