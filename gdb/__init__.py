@@ -17,7 +17,7 @@
 import lldb
 
 
-class error(BaseException):
+class error(RuntimeError):
     def __init__(self, msg):
         self.msg = msg
 
