@@ -10,6 +10,8 @@
 ; CHECK: array[Value(string)] -> gdb.error
 ; CHECK: array[Value(enum)] -> 66
 
+; CHECK: struct hack: elements[1] -> 0
+
 ; CHECK: struct[str] -> 99
 ; CHECK: struct[str/invalid] -> gdb.error
 ; CHECK: struct[int] -> gdb.error

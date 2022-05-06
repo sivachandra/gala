@@ -579,7 +579,10 @@ class Value(object):
             val = self
 
         stripped_sbtype, type_class = val._stripped_sbtype()
-        stripped_sbval = val.sbvalue().Cast(stripped_sbtype)
+        # Casting to stripped_sbtype directly can, in some cases, make us lose
+        # the underlying address of the SBValue. Apply the Cast to a pointer
+        # instead, converting to and fro.
+        stripped_sbval = val.sbvalue().AddressOf().Cast(stripped_sbtype.GetPointerType()).Dereference()
 
         if (type_class == lldb.eTypeClassClass or
             type_class == lldb.eTypeClassStruct or

@@ -14,6 +14,26 @@ enum MyEnum {
 
 MyEnum enum_index = MyEnum::ENUM_INDEX;
 
+// This is a regression test for a case where GALA casting the array to its
+// canonical type after stripping typedefs resulted in an SBValue that no longer
+// had an address. Which in turn resulted in GALA not being able to index the
+// array.
+struct StructWithArray {
+  int num_elements;
+  // huge array to approximate the behavior of "flexible array members" in C,
+  // without accessing memory past the end of the array.
+  void* elements[268435454];
+};
+
+StructWithArray *ptr_to_struct_with_array = [](){
+  void *ptr = malloc(sizeof(int) + 2*sizeof(void*));
+  StructWithArray *s = reinterpret_cast<StructWithArray*>(ptr);
+  s->num_elements = 2;
+  s->elements[0] = nullptr;
+  s->elements[1] = nullptr;
+  return s;
+}();
+
 // A pointer to array, to check the pointer[integer_index] case.
 int *ptr_to_array = array;
 

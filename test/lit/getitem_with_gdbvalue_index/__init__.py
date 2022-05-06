@@ -19,6 +19,11 @@ except gdb.error as e:
 
 print("array[Value(enum)] -> %d" % array[enum_index])
 
+# array as a struct member with struct hack. See cc file for details.
+struct_with_array = gdb.parse_and_eval("ptr_to_struct_with_array").dereference()
+elements = struct_with_array["elements"]
+print("struct hack: elements[1] -> %d" % elements[1])
+
 # getitem on a struct
 my_struct = gdb.parse_and_eval("my_struct")
 print("struct[str] -> %d" % my_struct["my_value"])
