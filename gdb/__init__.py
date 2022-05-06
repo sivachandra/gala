@@ -41,31 +41,36 @@ current_target = None
 # `default_debugger` set from `__lldb_init_module`, and will be used when there
 # is no `current_target` set from a prettyprinter.
 def gala_set_current_target(sbtarget):
-  global current_target
-  old_target = current_target
-  current_target = sbtarget
-  return old_target
+    global current_target
+    old_target = current_target
+    current_target = sbtarget
+    return old_target
 
 
 def gala_reset_current_target():
-  global current_target
-  current_target = None
+    global current_target
+    current_target = None
 
 
 def gala_get_current_target():
-  # If we aren't called from a prettyprinter, fall back to the current target.
-  # This is useful, for example, in our unit tests that just import gdb and run
-  # gdb.parse_and_eval("whatever") to test properties of `gdb.Value` objects.
-  if current_target:
-    return current_target
-  elif gala_get_current_debugger():
-    return gala_get_current_debugger().GetSelectedTarget()
-  else:
-    return None
+    # If we aren't called from a prettyprinter, fall back to the current target.
+    # This is useful, for example, in our unit tests that just import gdb and run
+    # gdb.parse_and_eval("whatever") to test properties of `gdb.Value` objects.
+    if current_target:
+        return current_target
+    elif gala_get_current_debugger():
+        return gala_get_current_debugger().GetSelectedTarget()
+    else:
+        return lldb.target
 
 
 def gala_get_current_debugger():
-  return current_target.GetDebugger() if current_target else default_debugger
+    if current_target:
+        return current_target.GetDebugger()
+    elif default_debugger:
+        return default_debugger
+    else:
+        return lldb.debugger
 
 
 VERSION="10.0"
