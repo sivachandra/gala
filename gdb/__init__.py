@@ -226,28 +226,19 @@ def _format_enum_value_name(enum_sbtype, name):
       return name
 
 
-class EnumField(object):
-    def __init__(self, name, enumval, type):
-        self.name = name
-        self.enumval = enumval
-        self.type = type
-        self.is_base_class = False
-
-
-class MemberField(object):
-    def __init__(self, name, type, bitsize, parent_type):
+class Field(object):
+    def __init__(self, name, type, bitpos, bitsize, parent_type, is_base_class, enumval=None):
         self.name = name
         self.type = type
+        # Enum fields have enumval, but not bitpos.
+        if enumval:
+            self.enumval = enumval
+        else:
+            self.bitpos = bitpos
         self.bitsize = bitsize
         self.parent_type = parent_type
-        self.is_base_class = False
-
-
-class BaseClassField(object):
-    def __init__(self, name, type):
-        self.name = name
-        self.type = type
-        self.is_base_class = True
+        self.is_base_class = is_base_class
+        self.artificial = False
 
 
 class Type(object):
@@ -349,22 +340,33 @@ class Type(object):
                 e = enum_list.GetTypeEnumMemberAtIndex(i)
                 field_name = _format_enum_value_name(self._sbtype_object,
                                                      e.GetName())
-                fields.append(EnumField(field_name,
-                                        e.GetValueAsSigned(),
-                                        Type(e.GetType())))
+                fields.append(Field(name=field_name,
+                                    type=None,
+                                    bitpos=None,
+                                    bitsize=0,
+                                    parent_type=self,
+                                    is_base_class=False,
+                                    enumval=e.GetValueAsSigned()))
         elif (type_class == lldb.eTypeClassUnion or
               type_class == lldb.eTypeClassStruct or
               type_class == lldb.eTypeClassClass):
             n_baseclasses = self._sbtype_object.GetNumberOfDirectBaseClasses()
             for i in range(0, n_baseclasses):
                 c = self._sbtype_object.GetDirectBaseClassAtIndex(i)
-                fields.append(BaseClassField(c.GetName(), Type(c.GetType())))
+                fields.append(Field(name=c.GetName(),
+                                    type=Type(c.GetType()),
+                                    bitpos=c.GetOffsetInBits(),
+                                    bitsize=0,
+                                    parent_type=self,
+                                    is_base_class=True))
             for i in range(0, self._sbtype_object.GetNumberOfFields()):
                 f = self._sbtype_object.GetFieldAtIndex(i)
-                fields.append(MemberField(f.GetName(),
-                                          Type(f.GetType()),
-                                          f.GetBitfieldSizeInBits(),
-                                          self))
+                fields.append(Field(name=f.GetName(),
+                                    type=Type(f.GetType()),
+                                    bitpos=f.GetOffsetInBits(),
+                                    bitsize=f.GetBitfieldSizeInBits(),
+                                    parent_type=self,
+                                    is_base_class=False))
         else:
             raise TypeError('Type "%s" cannot have fields.' %
                             self._sbtype_object.GetName())
