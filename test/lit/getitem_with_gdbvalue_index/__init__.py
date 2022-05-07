@@ -38,6 +38,13 @@ try:
 except gdb.error as e:
   print("struct[int] -> gdb.error: %s" % e)
 
+# getitem on struct with a base class and an anonymous union.
+struct_with_anonymous_union = gdb.parse_and_eval("struct_with_anonymous_union")
+print("struct[anonymous union member].base_member -> %d" %
+      struct_with_anonymous_union["my_value"])
+print("struct[anonymous union member].anon_member -> %d" %
+      struct_with_anonymous_union["d"])
+
 # getitem on pointer to array/struct
 ptr_to_array = gdb.parse_and_eval("ptr_to_array")
 print("ptr_to_array[Value(int)] -> %d" % ptr_to_array[int_index])

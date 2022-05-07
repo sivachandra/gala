@@ -15,6 +15,8 @@
 ; CHECK: struct[str] -> 99
 ; CHECK: struct[str/invalid] -> gdb.error
 ; CHECK: struct[int] -> gdb.error
+; CHECK: struct[anonymous union member].base_member -> 12
+; CHECK: struct[anonymous union member].anon_member -> 78
 
 ; CHECK: ptr_to_array[Value(int)] -> 22
 ; CHECK: ptr_to_struct[str] -> 99

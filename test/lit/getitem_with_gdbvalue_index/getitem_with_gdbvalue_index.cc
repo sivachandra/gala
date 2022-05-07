@@ -45,6 +45,27 @@ struct MyStruct {
 MyStruct my_struct = {99};
 MyStruct *ptr_to_struct = &my_struct;
 
+// A struct with a base class and an anonymous union. lldb has known issues
+// getting the right member with SBValue::GetChildMemberWithName() so we need to
+// test the workaround here.
+struct StructWithAnonymousUnion : public MyStruct {
+  int a;
+  int b;
+  union {
+    int c;
+    int d;
+  };
+};
+
+StructWithAnonymousUnion struct_with_anonymous_union = []() {
+  StructWithAnonymousUnion result;
+  result.my_value = 12;
+  result.a = 34;
+  result.b = 56;
+  result.d = 78;
+  return result;
+}();
+
 // Pointer to struct, but typedef'd.
 std::vector<MyStruct> v = {{42}};
 std::vector<MyStruct>::pointer typedefed_ptr_to_struct = &v[0];

@@ -373,6 +373,21 @@ class Type(object):
         return fields
 
 
+def _get_child_member_with_name(sbvalue, name):
+    result = sbvalue.GetChildMemberWithName(name)
+    if not result.IsValid() or result.GetName() != name:
+        # Look for anonymous union members. gdb transparently looks through them
+        # on __getitem__, but lldb doesn't so we have to do it here.
+        for i in range(sbvalue.GetNumChildren()):
+            child = sbvalue.GetChildAtIndex(i)
+            if (child.GetName() is None and
+                child.GetType().GetTypeClass() == lldb.eTypeClassUnion):
+                result = child.GetChildMemberWithName(name)
+                if result.IsValid():
+                    break
+    return result
+
+
 class Value(object):
     def __init__(self, sbvalue_object):
         self._sbvalue_object = sbvalue_object
@@ -592,9 +607,10 @@ class Value(object):
             if not isinstance(index, str):
                 raise error('Key value used to subscript a '
                             'class/struct/union value is not a string.')
-            mem_sbval = (stripped_sbval.GetNonSyntheticValue()
-                         .GetChildMemberWithName(index))
-            if (not mem_sbval) or (not mem_sbval.IsValid()):
+            mem_sbval = _get_child_member_with_name(
+                    stripped_sbval.GetNonSyntheticValue(), index)
+
+            if not mem_sbval.IsValid():
                 raise error(
                     'No member with name "%s" in value of type "%s".' %
                     (index, sbtype.GetName()))
