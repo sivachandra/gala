@@ -12,6 +12,7 @@ struct Derived : public Base1, Base2 {
 };
 
 enum EnumType {
+  VALUE0 = 0,
   VALUE1 = 1234,
   VALUE2 = 5678,
 };

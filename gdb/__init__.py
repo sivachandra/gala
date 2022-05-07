@@ -230,8 +230,9 @@ class Field(object):
     def __init__(self, name, type, bitpos, bitsize, parent_type, is_base_class, enumval=None):
         self.name = name
         self.type = type
-        # Enum fields have enumval, but not bitpos.
-        if enumval:
+        # Enum fields have enumval, but not bitpos. Note that 0 is falsey, so
+        # we have to check explicitly for not None.
+        if enumval is not None:
             self.enumval = enumval
         else:
             self.bitpos = bitpos

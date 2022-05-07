@@ -38,6 +38,15 @@ CHECK: is_base_class: False
 CHECK: artificial: False
 CHECK: No enumval attribute.
 CHECK: ========
+CHECK: name: VALUE0
+CHECK: type: None
+CHECK: No bitpos attribute.
+CHECK: bitsize: 0
+CHECK: parent_type: EnumType
+CHECK: is_base_class: False
+CHECK: artificial: False
+CHECK: enumval: 0
+CHECK: ========
 CHECK: name: VALUE1
 CHECK: type: None
 CHECK: No bitpos attribute.
