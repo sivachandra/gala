@@ -16,7 +16,7 @@ SECTION_SCRIPT_ID_SCHEME_TEXT = 6
 # gdb uses the script name to avoid running the same script twice. This set
 # allows us to do the same.
 loaded_scripts = set()
-
+modules_loaded_callbacks = []
 
 def debug_print(*args, **kwargs):
   if DEBUG_ENABLED:
@@ -36,6 +36,19 @@ def insert_module_name_hack(script_code):
     current_line -= 1
   lines.insert(current_line + 1, '__name__ = "__main__"')
   return "\n".join(lines)
+
+
+def register_modules_loaded_callbacks(callback):
+  """Registers a function to be called when lldb loads a new module.
+
+  lldb currently doesn't allow multiple listeners for the same event. GALA's
+  autoload script listens for the "modules loaded" event, so we provide a
+  callback facility so that other scripts can also respond to module loads.
+
+  Args:
+    callback: a function that takes a lldb.SBEvent object.
+  """
+  modules_loaded_callbacks.append(callback)
 
 
 class LLDBListenerThread(Thread):
@@ -109,6 +122,8 @@ class LLDBListenerThread(Thread):
           section = module.FindSection(".debug_gdb_scripts")
           if section.IsValid():
             self.process_scripts_section(section)
+        for callback in modules_loaded_callbacks:
+          callback(event)
 
 
 def __lldb_init_module(debugger, internal_dict):
