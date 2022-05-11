@@ -38,7 +38,7 @@ def insert_module_name_hack(script_code):
   return "\n".join(lines)
 
 
-def register_modules_loaded_callbacks(callback):
+def register_modules_loaded_callback(callback):
   """Registers a function to be called when lldb loads a new module.
 
   lldb currently doesn't allow multiple listeners for the same event. GALA's
