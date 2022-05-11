@@ -13,6 +13,7 @@
 ; CHECK: struct hack: elements[1] -> 0
 
 ; CHECK: struct[str] -> 99
+; CHECK: struct[gdb.Field] -> 99
 ; CHECK: struct[str/invalid] -> gdb.error
 ; CHECK: struct[int] -> gdb.error
 ; CHECK: struct[anonymous union member].base_member -> 12

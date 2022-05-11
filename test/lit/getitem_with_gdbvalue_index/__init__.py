@@ -28,6 +28,10 @@ print("struct hack: elements[1] -> %d" % elements[1])
 my_struct = gdb.parse_and_eval("my_struct")
 print("struct[str] -> %d" % my_struct["my_value"])
 
+# getitem on a struct but passing a gdb.Field instead of a name
+field = my_struct.type.fields()[0]
+print("struct[gdb.Field] -> %d" % my_struct[field])
+
 try:
   print(my_struct["xxxxxxx"])
 except gdb.error as e:

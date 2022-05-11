@@ -605,6 +605,10 @@ class Value(object):
         if (type_class == lldb.eTypeClassClass or
             type_class == lldb.eTypeClassStruct or
             type_class == lldb.eTypeClassUnion):
+            # gdb also allows using a gdb.Field as a struct index.
+            if isinstance(index, Field):
+                index = index.name
+
             if not isinstance(index, str):
                 raise error('Key value used to subscript a '
                             'class/struct/union value is not a string.')
