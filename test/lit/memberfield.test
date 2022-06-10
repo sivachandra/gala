@@ -1,6 +1,9 @@
+; Checks that type.fields() returns correct values for different types.
+
 ; RUN: %clangxx -g -o %t memberfield/memberfield.cc
 ; RUN: %lldb -b -o 'b main' -o 'r' -o 'script import memberfield' %t | FileCheck %s
 
+; Check fields of "Derived"
 CHECK: ========
 CHECK: name: Base1
 CHECK: type: Base1
@@ -37,6 +40,8 @@ CHECK: parent_type: Derived
 CHECK: is_base_class: False
 CHECK: artificial: False
 CHECK: No enumval attribute.
+
+; Check fields of EnumType
 CHECK: ========
 CHECK: name: VALUE0
 CHECK: type: None
@@ -64,3 +69,8 @@ CHECK: parent_type: EnumType
 CHECK: is_base_class: False
 CHECK: artificial: False
 CHECK: enumval: 5678
+
+; Check that DerivedAlias has the same number of fields as Derived. The point is
+; verifying that fields() also works on typedefed types. We have already checked
+; that fields() returns the right values, so no need to check again.
+CHECK: DerivedAlias has 4 fields.

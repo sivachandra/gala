@@ -20,4 +20,7 @@ enum EnumType {
 Derived obj;
 EnumType e;
 
+typedef Derived DerivedAlias;
+DerivedAlias obj2;
+
 int main() { return 0; }

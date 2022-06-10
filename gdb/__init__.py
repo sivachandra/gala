@@ -333,14 +333,14 @@ class Type(object):
         return Type(self._sbtype_object.GetTemplateArgumentType(n))
 
     def fields(self):
-        type_class = self._sbtype_object.GetTypeClass()
+        t = self._sbtype_object.GetCanonicalType()
+        type_class = t.GetTypeClass()
         fields = []
         if type_class == lldb.eTypeClassEnumeration:
-            enum_list = self._sbtype_object.GetEnumMembers()
+            enum_list = t.GetEnumMembers()
             for i in range(0, enum_list.GetSize()):
                 e = enum_list.GetTypeEnumMemberAtIndex(i)
-                field_name = _format_enum_value_name(self._sbtype_object,
-                                                     e.GetName())
+                field_name = _format_enum_value_name(t, e.GetName())
                 fields.append(Field(name=field_name,
                                     type=None,
                                     bitpos=None,
@@ -351,17 +351,17 @@ class Type(object):
         elif (type_class == lldb.eTypeClassUnion or
               type_class == lldb.eTypeClassStruct or
               type_class == lldb.eTypeClassClass):
-            n_baseclasses = self._sbtype_object.GetNumberOfDirectBaseClasses()
+            n_baseclasses = t.GetNumberOfDirectBaseClasses()
             for i in range(0, n_baseclasses):
-                c = self._sbtype_object.GetDirectBaseClassAtIndex(i)
+                c = t.GetDirectBaseClassAtIndex(i)
                 fields.append(Field(name=c.GetName(),
                                     type=Type(c.GetType()),
                                     bitpos=c.GetOffsetInBits(),
                                     bitsize=0,
                                     parent_type=self,
                                     is_base_class=True))
-            for i in range(0, self._sbtype_object.GetNumberOfFields()):
-                f = self._sbtype_object.GetFieldAtIndex(i)
+            for i in range(0, t.GetNumberOfFields()):
+                f = t.GetFieldAtIndex(i)
                 fields.append(Field(name=f.GetName(),
                                     type=Type(f.GetType()),
                                     bitpos=f.GetOffsetInBits(),
@@ -369,8 +369,7 @@ class Type(object):
                                     parent_type=self,
                                     is_base_class=False))
         else:
-            raise TypeError('Type "%s" cannot have fields.' %
-                            self._sbtype_object.GetName())
+            raise TypeError('Type "%s" cannot have fields.' % t.GetName())
         return fields
 
 

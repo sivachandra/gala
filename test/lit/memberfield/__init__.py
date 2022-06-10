@@ -24,3 +24,6 @@ for f in derived.fields():
 enum = gdb.lookup_type("EnumType")
 for f in enum.fields():
   print_field(f)
+
+derived_alias = gdb.lookup_type("DerivedAlias")
+print("DerivedAlias has %d fields." % len(derived_alias.fields()))
