@@ -107,7 +107,7 @@ class LLDBListenerThread(Thread):
       # So we copy the script code to a temporary file for lldb to run, and
       # insert at the beginning a `__name__ = "__main__"` assignment.
       script_code = insert_module_name_hack(
-          open(os.path.join(self.script_base_path, script_path), "r").read())
+          open(os.path.join(self.script_base_dir, script_path), "r").read())
       # In some platforms tmp.name can't be used to open the temporary file
       # unless the NamedTemporaryFile object has been `close`d. So we pass
       # `delete=False`, close it, run it, and delete it manually.
