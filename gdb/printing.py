@@ -142,7 +142,7 @@ class GdbPrinterSynthProvider:
     def num_children(self, max_count):
         if self._get_display_hint() == 'map':
             self._get_children(2 * max_count)
-            return min(len(self._children) / 2, max_count)
+            return min(len(self._children) // 2, max_count)
         else:
             self._get_children(max_count)
             return min(len(self._children), max_count)
