@@ -58,7 +58,7 @@ def register_modules_loaded_callback(callback):
 
 class LLDBListenerThread(Thread):
 
-  def __init__(self, debugger):
+  def __init__(self, debugger, script_base_dir):
     Thread.__init__(self)
     # The object backing `lldb.debugger` is, at the time of this writing, placed
     # in the stack. If we share it directly with the thread we can run into a
@@ -70,6 +70,7 @@ class LLDBListenerThread(Thread):
     self.listener.StartListeningForEventClass(
         debugger, lldb.SBTarget.GetBroadcasterClassName(),
         lldb.SBTarget.eBroadcastBitModulesLoaded)
+    self.script_base_dir = script_base_dir
 
     self.total_scripts_run = 0  # For debug logging.
 
@@ -105,7 +106,8 @@ class LLDBListenerThread(Thread):
       # lldb (as opposed to, for example, `exec`ing them directly from here).
       # So we copy the script code to a temporary file for lldb to run, and
       # insert at the beginning a `__name__ = "__main__"` assignment.
-      script_code = insert_module_name_hack(open(script_path, "r").read())
+      script_code = insert_module_name_hack(
+          open(os.path.join(self.script_base_path, script_path), "r").read())
       # In some platforms tmp.name can't be used to open the temporary file
       # unless the NamedTemporaryFile object has been `close`d. So we pass
       # `delete=False`, close it, run it, and delete it manually.
@@ -165,6 +167,17 @@ class LLDBListenerThread(Thread):
           callback(event)
 
 
-def __lldb_init_module(debugger, internal_dict):
-  thread = LLDBListenerThread(debugger)
+def initialize(debugger, script_base_dir):
+  """Initializes autoloading of .debug_gdb_scripts entries.
+
+  Args:
+    - debugger: The debugger object passed from __lldb_init_module.
+    - script_base_dir: the base directory that will be used for relative paths
+      in .debug_gdb_scripts entries.
+  """
+  thread = LLDBListenerThread(debugger, script_base_dir)
   thread.start()
+
+
+def __lldb_init_module(debugger, internal_dict):
+  initialize(debugger, os.getcwd())
