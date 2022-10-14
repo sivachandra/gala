@@ -1,0 +1,18 @@
+; RUN: %clangxx -g -o %t type_code/type_code.cc
+; RUN: %lldb -b -o 'b main' -o 'r' -o 'script import type_code' %t | FileCheck %s
+
+; CHECK: [int:PASS]
+; CHECK: [char:PASS]
+; CHECK: [wchar_t:PASS]
+; CHECK: [bool:PASS]
+; CHECK: [float:PASS]
+; CHECK: [double:PASS]
+; CHECK: [int_ptr:PASS]
+; CHECK: [int_ptr:PASS]
+; CHECK: [int_ref:PASS]
+; CHECK: [int_array:PASS]
+; CHECK: [MyStruct:PASS]
+; CHECK: [member_ptr:PASS]
+; CHECK: [method_ptr:PASS]
+; CHECK: [MyUnion:PASS]
+; CHECK: [MyEnum:PASS]

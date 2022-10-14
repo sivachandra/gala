@@ -128,11 +128,11 @@ TYPE_CLASS_TO_TYPE_CODE_MAP = {
     lldb.eTypeClassComplexInteger: TYPE_CODE_COMPLEX,
     lldb.eTypeClassEnumeration: TYPE_CODE_ENUM,
     lldb.eTypeClassFunction: TYPE_CODE_FUNC,
-    lldb.eTypeClassMemberPointer: TYPE_CODE_PTR,
+    lldb.eTypeClassMemberPointer: TYPE_CODE_MEMBERPTR,
     lldb.eTypeClassObjCObject: TYPE_CODE_UNDEF,
     lldb.eTypeClassObjCInterface: TYPE_CODE_UNDEF,
     lldb.eTypeClassObjCObjectPointer:TYPE_CODE_UNDEF,
-    lldb.eTypeClassPointer: TYPE_CODE_UNDEF,
+    lldb.eTypeClassPointer: TYPE_CODE_PTR,
     lldb.eTypeClassReference: TYPE_CODE_REF,
     lldb.eTypeClassStruct: TYPE_CODE_STRUCT,
     lldb.eTypeClassTypedef: TYPE_CODE_TYPEDEF,
@@ -147,12 +147,15 @@ TYPE_CLASS_TO_TYPE_CODE_MAP = {
 BASIC_TYPE_TO_TYPE_CODE_MAP = {
     lldb.eBasicTypeInvalid: TYPE_CODE_UNDEF,
     lldb.eBasicTypeVoid: TYPE_CODE_VOID,
-    lldb.eBasicTypeChar: TYPE_CODE_CHAR,
-    lldb.eBasicTypeSignedChar: TYPE_CODE_CHAR,
-    lldb.eBasicTypeUnsignedChar: TYPE_CODE_CHAR,
-    lldb.eBasicTypeWChar: TYPE_CODE_CHAR,
-    lldb.eBasicTypeSignedWChar: TYPE_CODE_CHAR,
-    lldb.eBasicTypeUnsignedWChar: TYPE_CODE_CHAR,
+    # In the "type_code" test case, gdb maps char types to TYPE_CODE_INT. I
+    # don't know how I can make it produce a type with TYPE_CODE_CHAR, so for
+    # now we'll map char types to int.
+    lldb.eBasicTypeChar: TYPE_CODE_INT,
+    lldb.eBasicTypeSignedChar: TYPE_CODE_INT,
+    lldb.eBasicTypeUnsignedChar: TYPE_CODE_INT,
+    lldb.eBasicTypeWChar: TYPE_CODE_INT,
+    lldb.eBasicTypeSignedWChar: TYPE_CODE_INT,
+    lldb.eBasicTypeUnsignedWChar: TYPE_CODE_INT,
     lldb.eBasicTypeChar16: TYPE_CODE_CHAR,
     lldb.eBasicTypeChar32: TYPE_CODE_CHAR,
     lldb.eBasicTypeShort: TYPE_CODE_INT,
@@ -272,6 +275,12 @@ class Type(object):
         type_class = self._sbtype_object.GetTypeClass()
         type_code = TYPE_CLASS_TO_TYPE_CODE_MAP.get(type_class,
                                                     TYPE_CODE_UNDEF)
+        # Both member pointers and method pointers have eTypeClassMemberPointer
+        # in lldb. We need extra logic to distinguish them.
+        if (type_class == lldb.eTypeClassMemberPointer and
+            self._sbtype_object.GetPointeeType().IsFunctionType()):
+          type_code = TYPE_CODE_METHODPTR
+
         if int(type_code) != int(TYPE_CODE_UNDEF):
             return int(type_code)
 
