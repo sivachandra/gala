@@ -19,6 +19,8 @@ Do the following to start using GALA with LLDB:
 
          script import sys
          script import sys.path.append(<path_to_gala>)
+         command script import gdb
+         command script import gdb.printing
 
   3. [Optional] To enable autoloading of `.debug_gdb_scripts`, add the following
      line (after step 2 from above) to your .lldbinit file:
