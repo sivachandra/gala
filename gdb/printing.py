@@ -46,7 +46,7 @@ def _print_exc(err_msg: str):
     print('<<< --- >>>')
 
 
-def _object_name(obj: Any) -> str:
+def _object_name(obj: Any) -> Optional[str]:
     """Returns a user-readable name for an object."""
     if hasattr(obj, 'name'):
         return obj.name
