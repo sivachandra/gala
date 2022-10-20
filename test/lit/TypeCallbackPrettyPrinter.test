@@ -1,0 +1,22 @@
+Checks that gala_compatibility.TypeCallbackPrettyPrinter works.
+
+RUN: %clangxx -g -o %t TypeCallbackPrettyPrinter/test_program.cc
+RUN: %lldb -b \
+RUN:       -o 'script import TypeCallbackPrettyPrinter' \
+RUN:       -o 'b main' \
+RUN:       -o 'r' \
+RUN:       -o 'p s1' \
+RUN:       -o 'p s2' \
+RUN:       -o 'p s3' %t | FileCheck %s
+
+skip lldb output until our first print command
+CHECK: p s1
+CHECK: A class with an X member. X = 1234
+
+CHECK: p s2
+CHECK: A class with an X member. X = 5678
+
+CHECK: p s3
+CHECK-NOT: A class with an X member
+CHECK: 9999
+
