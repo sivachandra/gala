@@ -15,7 +15,7 @@
 ############################################################################
 
 import lldb
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 
 class error(RuntimeError):
@@ -261,7 +261,7 @@ class Type(object):
         return self._sbtype_object
 
     def _is_baseclass(
-            self, baseclass_sbtype: lldb.SBType) -> tuple[bool, Optional[int]]:
+            self, baseclass_sbtype: lldb.SBType) -> Tuple[bool, Optional[int]]:
         base_sbtype = Type(baseclass_sbtype).strip_typedefs().sbtype()
         self_sbtype = self.strip_typedefs().sbtype()
         for i in range(self_sbtype.GetNumberOfDirectBaseClasses()):
@@ -346,7 +346,7 @@ class Type(object):
     def pointer(self) -> 'Type':
         return Type(self._sbtype_object.GetPointerType())
 
-    def template_argument(self, n: int) -> 'Type | Value':
+    def template_argument(self, n: int) -> Union['Type', 'Value']:
         # TODO: This is woefully incomplete!
         return Type(self._sbtype_object.GetTemplateArgumentType(n))
 
@@ -414,13 +414,13 @@ class Value(object):
     def sbvalue(self) -> lldb.SBValue:
         return self._sbvalue_object
 
-    def _stripped_sbtype(self) -> tuple[lldb.SBType, int]:
+    def _stripped_sbtype(self) -> Tuple[lldb.SBType, int]:
         sbtype = self._sbvalue_object.GetType()
         stripped_sbtype = Type(sbtype).strip_typedefs().sbtype()
         type_class = stripped_sbtype.GetTypeClass()
         return stripped_sbtype, type_class
 
-    def _as_number(self) -> int | float:
+    def _as_number(self) -> Union[int, float]:
         sbtype, _ = self._stripped_sbtype()
         type_flags = sbtype.GetTypeFlags()
         if type_flags & lldb.eTypeIsEnumeration:
@@ -454,7 +454,7 @@ class Value(object):
         return numval
 
     def _binary_op(self,
-                   other: 'Value | int | float',
+                   other: Union['Value', int, float],
                    op: int,
                    reverse: bool = False) -> 'Value':
         sbtype, type_class = self._stripped_sbtype()
@@ -551,7 +551,7 @@ class Value(object):
         return Value(self._sbvalue_object.CreateValueFromData(
             '', data, result_type))
 
-    def _cmp(self, other: 'Value | int | float') -> int:
+    def _cmp(self, other: Union['Value', int, float]) -> int:
         if (isinstance(other, int) or isinstance(other, float)):
             other_val = other
         elif isinstance(other, Value):
@@ -667,30 +667,30 @@ class Value(object):
         return Value(self._sbvalue_object.CreateValueFromAddress(
              "", new_addr, elem_sbtype))
 
-    def __add__(self, number: 'Value | int | float') -> 'Value':
+    def __add__(self, number: Union['Value', int, float]) -> 'Value':
         return self._binary_op(number, OP_ADD)
 
-    def __radd__(self, number: 'Value | int | float') -> 'Value':
+    def __radd__(self, number: Union['Value', int, float]) -> 'Value':
         return self._binary_op(number, OP_ADD, reverse=True)
 
-    def __sub__(self, number: 'Value | int | float') -> 'Value':
+    def __sub__(self, number: Union['Value', int, float]) -> 'Value':
         return self._binary_op(number, OP_SUB)
 
-    def __rsub__(self, number: 'Value | int | float') -> 'Value':
+    def __rsub__(self, number: Union['Value', int, float]) -> 'Value':
         return self._binary_op(number, OP_SUB, reverse=True)
 
-    def __mul__(self, number: 'Value | int | float') -> 'Value':
+    def __mul__(self, number: Union['Value', int, float]) -> 'Value':
         return self._binary_op(number, OP_MUL)
 
-    def __rmul__(self, number: 'Value | int | float') -> 'Value':
+    def __rmul__(self, number: Union['Value', int, float]) -> 'Value':
         return self._binary_op(number, OP_MUL, reverse=True)
 
     # gdb with python3 uses the truediv (/) operator, but still does integer
     # division.
-    def __truediv__(self, number: 'Value | int | float') -> 'Value':
+    def __truediv__(self, number: Union['Value', int, float]) -> 'Value':
         return self._binary_op(number, OP_TRUEDIV)
 
-    def __rtruediv__(self, number: 'Value | int | float') -> 'Value':
+    def __rtruediv__(self, number: Union['Value', int, float]) -> 'Value':
         return self._binary_op(number, OP_TRUEDIV, reverse=True)
 
     def __bool__(self) -> bool:
@@ -704,52 +704,52 @@ class Value(object):
         else:
             return self._sbvalue_object.IsValid()
 
-    def __eq__(self, other: 'Value | int | float') -> bool:
+    def __eq__(self, other: Union['Value', int, float]) -> bool:
         return self._cmp(other) == 0
 
-    def __ne__(self, other: 'Value | int | float') -> bool:
+    def __ne__(self, other: Union['Value', int, float]) -> bool:
         return self._cmp(other) != 0
 
-    def __lt__(self, other: 'Value | int | float') -> bool:
+    def __lt__(self, other: Union['Value', int, float]) -> bool:
         return self._cmp(other) < 0
 
-    def __le__(self, other: 'Value | int | float') -> bool:
+    def __le__(self, other: Union['Value', int, float]) -> bool:
         return self._cmp(other) <= 0
 
-    def __gt__(self, other: 'Value | int | float') -> bool:
+    def __gt__(self, other: Union['Value', int, float]) -> bool:
         return self._cmp(other) > 0
 
-    def __ge__(self, other: 'Value | int | float') -> bool:
+    def __ge__(self, other: Union['Value', int, float]) -> bool:
         return self._cmp(other) >= 0
 
-    def __and__(self, other: 'Value | int | float') -> 'Value':
+    def __and__(self, other: Union['Value', int, float]) -> 'Value':
         return self._binary_op(other, OP_BITWISE_AND)
 
-    def __rand__(self, other: 'Value | int | float') -> 'Value':
+    def __rand__(self, other: Union['Value', int, float]) -> 'Value':
         return self._binary_op(other, OP_BITWISE_AND, reverse=True)
 
-    def __or__(self, other: 'Value | int | float') -> 'Value':
+    def __or__(self, other: Union['Value', int, float]) -> 'Value':
         return self._binary_op(other, OP_BITWISE_OR)
 
-    def __ror__(self, other: 'Value | int | float') -> 'Value':
+    def __ror__(self, other: Union['Value', int, float]) -> 'Value':
         return self._binary_op(other, OP_BITWISE_OR, reverse=True)
 
-    def __xor__(self, other: 'Value | int | float') -> 'Value':
+    def __xor__(self, other: Union['Value', int, float]) -> 'Value':
         return self._binary_op(other, OP_BITWISE_XOR)
 
-    def __rxor__(self, other: 'Value | int | float') -> 'Value':
+    def __rxor__(self, other: Union['Value', int, float]) -> 'Value':
         return self._binary_op(other, OP_BITWISE_XOR, reverse=True)
 
-    def __lshift__(self, other: 'Value | int | float') -> 'Value':
+    def __lshift__(self, other: Union['Value', int, float]) -> 'Value':
         return self._binary_op(other, OP_LSHIFT)
 
-    def __rlshift__(self, other: 'Value | int | float') -> 'Value':
+    def __rlshift__(self, other: Union['Value', int, float]) -> 'Value':
         return self._binary_op(other, OP_LSHIFT, reverse=True)
 
-    def __rshift__(self, other: 'Value | int | float') -> 'Value':
+    def __rshift__(self, other: Union['Value', int, float]) -> 'Value':
         return self._binary_op(other, OP_RSHIFT)
 
-    def __rrshift__(self, other: 'Value | int | float') -> 'Value':
+    def __rrshift__(self, other: Union['Value', int, float]) -> 'Value':
         return self._binary_op(other, OP_RSHIFT, reverse=True)
 
     def __invert__(self) -> 'Value':
@@ -936,18 +936,22 @@ def lookup_type(name, block=None) -> Type:
 
 
 class Objfile:
-    pass
+    pass  # This class is just a stub for gdb.Objfile for now.
 
 
 def current_objfile() -> Optional[Objfile]:
+    # This function should return the current Objfile, if any. But objfiles are
+    # not implemented in GALA, so we always return None.
     return None
 
 
 class Progspace:
-    pass
+    pass  # This class is just a stub for gdb.Progspace for now.
 
 
 def current_progspace() -> Optional[Progspace]:
+    # This function should return the current Progspace. But progspaces are not
+    # implemented in GALA, so we always return None.
     return None
 
 
