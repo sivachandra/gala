@@ -15,6 +15,7 @@
 ############################################################################
 
 import lldb
+from typing import Any, Dict, List, Optional
 
 
 class error(RuntimeError):
@@ -40,19 +41,19 @@ current_target = None
 # NOTE: we also need a debugger for prettyprinter registration, so we save
 # `default_debugger` set from `__lldb_init_module`, and will be used when there
 # is no `current_target` set from a prettyprinter.
-def gala_set_current_target(sbtarget):
+def gala_set_current_target(sbtarget: lldb.SBTarget) -> None:
     global current_target
     old_target = current_target
     current_target = sbtarget
     return old_target
 
 
-def gala_reset_current_target():
+def gala_reset_current_target() -> None:
     global current_target
     current_target = None
 
 
-def gala_get_current_target():
+def gala_get_current_target() -> lldb.SBTarget:
     # If we aren't called from a prettyprinter, fall back to the current target.
     # This is useful, for example, in our unit tests that just import gdb and run
     # gdb.parse_and_eval("whatever") to test properties of `gdb.Value` objects.
@@ -64,7 +65,7 @@ def gala_get_current_target():
         return lldb.target
 
 
-def gala_get_current_debugger():
+def gala_get_current_debugger() -> lldb.SBDebugger:
     if current_target:
         return current_target.GetDebugger()
     elif default_debugger:
@@ -205,12 +206,12 @@ BUILTIN_TYPE_NAME_TO_BASIC_TYPE = {
 }
 
 
-def get_builtin_sbtype(typename):
+def get_builtin_sbtype(typename: str) -> lldb.SBType:
     return gala_get_current_target().GetBasicType(
         BUILTIN_TYPE_NAME_TO_BASIC_TYPE[typename])
 
 
-def _format_enum_value_name(enum_sbtype, name):
+def _format_enum_value_name(enum_sbtype: lldb.SBType, name: str) -> str:
     # We need to special-case nested and scoped enums because the default
     # behavior of lldb for enum values is different from gdb. We want this:
     # - plain:         'VALUE'
@@ -230,7 +231,14 @@ def _format_enum_value_name(enum_sbtype, name):
 
 
 class Field(object):
-    def __init__(self, name, type, bitpos, bitsize, parent_type, is_base_class, enumval=None):
+  def __init__(self,
+               name: str,
+               type: 'Type',
+               bitpos: int,
+               bitsize: int,
+               parent_type: 'Type',
+               is_base_class: bool,
+               enumval: Optional[int] = None):
         self.name = name
         self.type = type
         # Enum fields have enumval, but not bitpos. Note that 0 is falsey, so
@@ -246,13 +254,14 @@ class Field(object):
 
 
 class Type(object):
-    def __init__(self, sbtype_object):
+    def __init__(self, sbtype_object: lldb.SBType):
         self._sbtype_object = sbtype_object
 
-    def sbtype(self):
+    def sbtype(self) -> lldb.SBType:
         return self._sbtype_object
 
-    def _is_baseclass(self, baseclass_sbtype):
+    def _is_baseclass(
+            self, baseclass_sbtype: lldb.SBType) -> tuple[bool, Optional[int]]:
         base_sbtype = Type(baseclass_sbtype).strip_typedefs().sbtype()
         self_sbtype = self.strip_typedefs().sbtype()
         for i in range(self_sbtype.GetNumberOfDirectBaseClasses()):
@@ -271,7 +280,7 @@ class Type(object):
         return self._sbtype_object.GetName()
 
     @property
-    def code(self):
+    def code(self) -> int:
         type_class = self._sbtype_object.GetTypeClass()
         type_code = TYPE_CLASS_TO_TYPE_CODE_MAP.get(type_class,
                                                     TYPE_CODE_UNDEF)
@@ -292,18 +301,18 @@ class Type(object):
         return TYPE_CODE_UNDEF
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._sbtype_object.GetName()
 
     @property
-    def sizeof(self):
+    def sizeof(self) -> int:
         return self._sbtype_object.GetByteSize()
 
     @property
-    def tag(self):
+    def tag(self) -> str:
         return self._sbtype_object.GetName()
 
-    def target(self):
+    def target(self) -> 'Type':
         type_class = self._sbtype_object.GetTypeClass()
         if type_class == lldb.eTypeClassPointer:
             return Type(self._sbtype_object.GetPointeeType())
@@ -317,7 +326,7 @@ class Type(object):
             raise TypeError('Type "%s" cannot have target type.' %
                             self._sbtype_object.GetName())
 
-    def strip_typedefs(self):
+    def strip_typedefs(self) -> 'Type':
         sbtype = self._sbtype_object
         while sbtype.GetTypedefedType():
             if sbtype == sbtype.GetTypedefedType():
@@ -325,23 +334,23 @@ class Type(object):
             sbtype = sbtype.GetTypedefedType()
         return Type(sbtype)
 
-    def unqualified(self):
+    def unqualified(self) -> 'Type':
         return Type(self._sbtype_object.GetUnqualifiedType())
 
-    def array(self, higher_bound):
+    def array(self, higher_bound: int) -> 'Type':
         # lldb expects size instead of higher_bound. gdb is pretty permissive
         # with the type of the bound as long as it's somewhat numeric, so we
         # cast it to an int to avoid type errors.
         return Type(self._sbtype_object.GetArrayType(int(higher_bound) + 1))
 
-    def pointer(self):
+    def pointer(self) -> 'Type':
         return Type(self._sbtype_object.GetPointerType())
 
-    def template_argument(self, n):
+    def template_argument(self, n: int) -> 'Type | Value':
         # TODO: This is woefully incomplete!
         return Type(self._sbtype_object.GetTemplateArgumentType(n))
 
-    def fields(self):
+    def fields(self) -> List[Field]:
         t = self._sbtype_object.GetCanonicalType()
         type_class = t.GetTypeClass()
         fields = []
@@ -382,7 +391,8 @@ class Type(object):
         return fields
 
 
-def _get_child_member_with_name(sbvalue, name):
+def _get_child_member_with_name(
+        sbvalue: lldb.SBValue, name: str) -> lldb.SBValue:
     result = sbvalue.GetChildMemberWithName(name)
     if not result.IsValid() or result.GetName() != name:
         # Look for anonymous union members. gdb transparently looks through them
@@ -398,19 +408,19 @@ def _get_child_member_with_name(sbvalue, name):
 
 
 class Value(object):
-    def __init__(self, sbvalue_object):
+    def __init__(self, sbvalue_object: lldb.SBValue):
         self._sbvalue_object = sbvalue_object
 
-    def sbvalue(self):
+    def sbvalue(self) -> lldb.SBValue:
         return self._sbvalue_object
 
-    def _stripped_sbtype(self):
+    def _stripped_sbtype(self) -> tuple[lldb.SBType, int]:
         sbtype = self._sbvalue_object.GetType()
         stripped_sbtype = Type(sbtype).strip_typedefs().sbtype()
         type_class = stripped_sbtype.GetTypeClass()
         return stripped_sbtype, type_class
 
-    def _as_number(self):
+    def _as_number(self) -> int | float:
         sbtype, _ = self._stripped_sbtype()
         type_flags = sbtype.GetTypeFlags()
         if type_flags & lldb.eTypeIsEnumeration:
@@ -443,7 +453,10 @@ class Value(object):
                 'Conversion of type %s to number is not supported.'%sbtype.name)
         return numval
 
-    def _binary_op(self, other, op, reverse=False):
+    def _binary_op(self,
+                   other: 'Value | int | float',
+                   op: int,
+                   reverse: bool = False) -> 'Value':
         sbtype, type_class = self._stripped_sbtype()
         if type_class == lldb.eTypeClassPointer:
             if not (op == OP_ADD or op == OP_SUB) or reverse:
@@ -538,7 +551,7 @@ class Value(object):
         return Value(self._sbvalue_object.CreateValueFromData(
             '', data, result_type))
 
-    def _cmp(self, other):
+    def _cmp(self, other: 'Value | int | float') -> int:
         if (isinstance(other, int) or isinstance(other, float)):
             other_val = other
         elif isinstance(other, Value):
@@ -553,7 +566,7 @@ class Value(object):
         else:
             return 1
 
-    def __str__(self):
+    def __str__(self) -> str:
         # For values of enum types we need to check if the value is one of the
         # enumerators in order to return a properly-formatted name. However, if
         # it's any other random integer value we just print the number.
@@ -580,16 +593,16 @@ class Value(object):
             valstr = str(self._sbvalue_object)
         return valstr
 
-    def __index__(self):
+    def __index__(self) -> int:
         return int(self._as_number())
 
-    def __int__(self):
+    def __int__(self) -> int:
         return int(self._as_number())
 
-    def __float__(self):
+    def __float__(self) -> float:
         return float(self._as_number())
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> 'Value':
         sbtype = self._sbvalue_object.GetType()
         # Keep the value to print in `val`. It's not always `self`:
         # - If ptr["member name"], we need to dereference the pointer.
@@ -654,33 +667,33 @@ class Value(object):
         return Value(self._sbvalue_object.CreateValueFromAddress(
              "", new_addr, elem_sbtype))
 
-    def __add__(self, number):
+    def __add__(self, number: 'Value | int | float') -> 'Value':
         return self._binary_op(number, OP_ADD)
 
-    def __radd__(self, number):
+    def __radd__(self, number: 'Value | int | float') -> 'Value':
         return self._binary_op(number, OP_ADD, reverse=True)
 
-    def __sub__(self, number):
+    def __sub__(self, number: 'Value | int | float') -> 'Value':
         return self._binary_op(number, OP_SUB)
 
-    def __rsub__(self, number):
+    def __rsub__(self, number: 'Value | int | float') -> 'Value':
         return self._binary_op(number, OP_SUB, reverse=True)
 
-    def __mul__(self, number):
+    def __mul__(self, number: 'Value | int | float') -> 'Value':
         return self._binary_op(number, OP_MUL)
 
-    def __rmul__(self, number):
+    def __rmul__(self, number: 'Value | int | float') -> 'Value':
         return self._binary_op(number, OP_MUL, reverse=True)
 
     # gdb with python3 uses the truediv (/) operator, but still does integer
     # division.
-    def __truediv__(self, number):
+    def __truediv__(self, number: 'Value | int | float') -> 'Value':
         return self._binary_op(number, OP_TRUEDIV)
 
-    def __rtruediv__(self, number):
+    def __rtruediv__(self, number: 'Value | int | float') -> 'Value':
         return self._binary_op(number, OP_TRUEDIV, reverse=True)
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         sbtype, type_class = self._stripped_sbtype()
         type_flags = sbtype.GetTypeFlags()
         if ((type_flags & lldb.eTypeIsPointer) or
@@ -691,73 +704,55 @@ class Value(object):
         else:
             return self._sbvalue_object.IsValid()
 
-    def __eq__(self, other):
-        if self._cmp(other) == 0:
-            return True
-        else:
-            return False
+    def __eq__(self, other: 'Value | int | float') -> bool:
+        return self._cmp(other) == 0
 
-    def __ne__(self, other):
-        if self._cmp(other) != 0:
-            return True
-        else:
-            return False
+    def __ne__(self, other: 'Value | int | float') -> bool:
+        return self._cmp(other) != 0
 
-    def __lt__(self, other):
-        if self._cmp(other) < 0:
-            return True
-        else:
-            return False
+    def __lt__(self, other: 'Value | int | float') -> bool:
+        return self._cmp(other) < 0
 
-    def __le__(self, other):
-        if self._cmp(other) <= 0:
-            return True
-        else:
-            return False
+    def __le__(self, other: 'Value | int | float') -> bool:
+        return self._cmp(other) <= 0
 
-    def __gt__(self, other):
-        if self._cmp(other) > 0:
-            return True
-        else:
-            return False
+    def __gt__(self, other: 'Value | int | float') -> bool:
+        return self._cmp(other) > 0
 
-    def __ge__(self, other):
-        if self._cmp(other) >= 0:
-            return True
-        else:
-            return False
+    def __ge__(self, other: 'Value | int | float') -> bool:
+        return self._cmp(other) >= 0
 
-    def __and__(self, other):
+    def __and__(self, other: 'Value | int | float') -> 'Value':
         return self._binary_op(other, OP_BITWISE_AND)
 
-    def __rand__(self, other):
+    def __rand__(self, other: 'Value | int | float') -> 'Value':
         return self._binary_op(other, OP_BITWISE_AND, reverse=True)
 
-    def __or__(self, other):
+    def __or__(self, other: 'Value | int | float') -> 'Value':
         return self._binary_op(other, OP_BITWISE_OR)
 
-    def __ror__(self, other):
+    def __ror__(self, other: 'Value | int | float') -> 'Value':
         return self._binary_op(other, OP_BITWISE_OR, reverse=True)
 
-    def __xor__(self, other):
+    def __xor__(self, other: 'Value | int | float') -> 'Value':
         return self._binary_op(other, OP_BITWISE_XOR)
 
-    def __rxor__(self, other):
+    def __rxor__(self, other: 'Value | int | float') -> 'Value':
         return self._binary_op(other, OP_BITWISE_XOR, reverse=True)
 
-    def __lshift__(self, other):
+    def __lshift__(self, other: 'Value | int | float') -> 'Value':
         return self._binary_op(other, OP_LSHIFT)
 
-    def __rlshift__(self, other):
+    def __rlshift__(self, other: 'Value | int | float') -> 'Value':
         return self._binary_op(other, OP_LSHIFT, reverse=True)
 
-    def __rshift__(self, other):
+    def __rshift__(self, other: 'Value | int | float') -> 'Value':
         return self._binary_op(other, OP_RSHIFT)
 
-    def __rrshift__(self, other):
+    def __rrshift__(self, other: 'Value | int | float') -> 'Value':
         return self._binary_op(other, OP_RSHIFT, reverse=True)
 
-    def __invert__(self):
+    def __invert__(self) -> 'Value':
         value = self._as_number()
         if not isinstance(value, int):
             raise TypeError("Bad operand type for unary ~")
@@ -768,11 +763,11 @@ class Value(object):
             '', data, get_builtin_sbtype('long')))
 
     @property
-    def type(self):
+    def type(self) -> Type:
         return Type(self._sbvalue_object.GetType())
 
     @property
-    def address(self):
+    def address(self) -> 'Value':
         ptr_sbvalue = self._sbvalue_object.AddressOf()
         if not ptr_sbvalue.IsValid():
             load_address = self._sbvalue_object.GetLoadAddress()
@@ -781,7 +776,7 @@ class Value(object):
             ptr_sbvalue = new_sbvalue.AddressOf()
         return Value(ptr_sbvalue)
 
-    def cast(self, gdbtype):
+    def cast(self, gdbtype: Type) -> 'Value':
         target_sbtype = gdbtype.sbtype()
         self_sbtype = self._sbvalue_object.GetType()
         is_baseclass, offset = Type(self_sbtype)._is_baseclass(target_sbtype)
@@ -802,12 +797,12 @@ class Value(object):
             return Value(result)
         return Value(self._sbvalue_object.Cast(target_sbtype))
 
-    def reinterpret_cast(self, gdbtype):
+    def reinterpret_cast(self, gdbtype: Type) -> 'Value':
         # lldb SBValue.Cast should work correctly to cast between pointer types.
         # TODO: error out if types are not correct for a reinterpret_cast.
         return Value(self._sbvalue_object.Cast(gdbtype.sbtype()))
 
-    def dereference(self):
+    def dereference(self) -> 'Value':
         stripped_sbtype, _ = self._stripped_sbtype()
         stripped_sbval = self._sbvalue_object.Cast(stripped_sbtype)
         # gdb allows calling dereference() on arrays, and it's supposed to be
@@ -816,10 +811,13 @@ class Value(object):
           return Value(stripped_sbval.GetChildAtIndex(0))
         return Value(stripped_sbval.Dereference())
 
-    def referenced_value(self):
+    def referenced_value(self) -> 'Value':
         return Value(self._sbvalue_object.Dereference())
 
-    def string(self, encoding='utf-8', errors='strict', length = None):
+    def string(self,
+               encoding: str = 'utf-8',
+               errors: str = 'strict',
+               length: Optional[int] = None) -> str:
         """Returns this value as a string.
 
         If `length` is not given, bytes will be fetched from memory until a null
@@ -851,7 +849,7 @@ class Command:
     pass
 
 
-def _RunCommand(command):
+def _RunCommand(command: str) -> str:
     """Runs an LLDB command and returns its output as a string."""
     result = lldb.SBCommandReturnObject()
     target = gala_get_current_target()
@@ -865,16 +863,16 @@ def _RunCommand(command):
         command, execution_context, result)
     return result.GetOutput()
 
-def _GetSetting(s):
-    """Returns the value of setting `s` as a string."""
-    result = _RunCommand("settings show %s" % s)
+def _GetSetting(name: str) -> str:
+    """Returns the value of setting `name` as a string."""
+    result = _RunCommand("settings show %s" % name)
     return result.split(" = ", maxsplit=1)[1]
 
 class Parameter:
     pass
 
 
-def parameter(s):
+def parameter(s: str) -> Any:
     # gdb's 'print elements' is used for number of array elements to print and
     # also max number of chars in a string. lldb has 'target.max-children-count'
     # and 'target.max-string-summary-length', but max-children-count seems like
@@ -885,10 +883,11 @@ def parameter(s):
 
 
 class Inferior:
-    def __init__(self, sbprocess):
+    def __init__(self, sbprocess: lldb.SBProcess):
         self._sbprocess = sbprocess
 
-    def read_memory(self, address, length):
+    def read_memory(
+            self, address: Value | int, length: Value | int) -> memoryview:
         """Reads `length` bytes at `address`. Returns a bytes object."""
         # SBProcess.ReadMemory expects a positive length, so we need to handle
         # the empty case here.
@@ -901,19 +900,19 @@ class Inferior:
         return memoryview(result)
 
 
-def selected_inferior():
+def selected_inferior() -> Inferior:
     return Inferior(gala_get_current_target().GetProcess())
 
 
-def parse_and_eval(expr):
+def parse_and_eval(expr) -> Value:
     opts = lldb.SBExpressionOptions()
     sbvalue = gala_get_current_target().EvaluateExpression(expr, opts)
     if sbvalue and sbvalue.IsValid():
         return Value(sbvalue)
-    return RuntimeError('Unable to evaluate "%s".', expr)
+    raise RuntimeError('Unable to evaluate "%s".', expr)
 
 
-def lookup_type(name, block=None):
+def lookup_type(name, block=None) -> Type:
     chunks = name.split('::')
     unscoped_name = chunks[-1]
     typelist = gala_get_current_target().FindTypes(unscoped_name)
@@ -936,21 +935,29 @@ def lookup_type(name, block=None):
     raise error('Type "%s" not found in %d matches.' % (name, count))
 
 
-def current_objfile():
+class Objfile:
+    pass
+
+
+def current_objfile() -> Optional[Objfile]:
     return None
 
 
-def current_progspace():
+class Progspace:
+    pass
+
+
+def current_progspace() -> Optional[Progspace]:
     return None
 
 
-def default_visualizer(value):
+def default_visualizer(value: Value) -> Any:
     for p in pretty_printers:
         pp = p(value)
         if pp:
             return pp
 
 
-def __lldb_init_module(debugger, internal_dict):
+def __lldb_init_module(debugger: lldb.SBDebugger, internal_dict: Dict):
     global default_debugger
     default_debugger = debugger
