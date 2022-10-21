@@ -13,7 +13,7 @@ class TypeCallbackPrettyPrinter(gdb.printing.PrettyPrinter):
   # implementation of `gdb.register_pretty_printer()` uses the
   # `gala_matching_function` and `gala_make_printer_function` subprinter
   # attributes to drive callback-based formatter registration in LLDB.
-  class Subprinter:
+  class Subprinter(gdb.printing.SubPrettyPrinter):
 
     def __init__(self, name, matching_function, make_printer_function):
       self.enabled = True
