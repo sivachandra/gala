@@ -309,6 +309,17 @@ class PrettyPrinter:
                 '__call__ must be defined in the PrettyPrinter subclass')
 
 
+class SubPrettyPrinter:
+    """A base sub-prettyprinter class
+
+    gdb doesn't require prettyprinter classes to derive from this, but gives
+    script authors the option to do so, so we implement it as well.
+    """
+    def __init__(self, name):
+        self.name = name
+        self.enabled = True
+
+
 class RegexpCollectionPrettyPrinter(PrettyPrinter):
     """Implements a collection of prettyprinters with regexp matching.
 
