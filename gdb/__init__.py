@@ -886,8 +886,9 @@ class Inferior:
     def __init__(self, sbprocess: lldb.SBProcess):
         self._sbprocess = sbprocess
 
-    def read_memory(
-            self, address: Value | int, length: Value | int) -> memoryview:
+    def read_memory(self,
+                    address: Union[Value, int],
+                    length: Union[Value, int]) -> memoryview:
         """Reads `length` bytes at `address`. Returns a bytes object."""
         # SBProcess.ReadMemory expects a positive length, so we need to handle
         # the empty case here.
