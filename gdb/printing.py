@@ -180,7 +180,7 @@ def _make_child_provider_class(
                 self._pp = make_printer_func(gdb.Value(self._sbvalue))
             except:
                 _print_exc(
-                    'Error calling into GDB printer "%s".' % p.name)
+                    'Error calling into GDB printer "%s".' % make_printer_func)
             if not self._pp:
                 raise RuntimeError('Prettyprinter does not match given value.')
 
