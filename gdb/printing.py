@@ -234,8 +234,11 @@ def _make_child_provider_class(
                         'Value does not have a child with name "%s".' % name)
 
         @_set_current_target
-        def get_child_at_index(self, index: int) -> lldb.SBValue:
-            assert hasattr(self._pp, 'children')
+        def get_child_at_index(self, index: int) -> Optional[lldb.SBValue]:
+            # lldb-vscode currently relies on the fact that passing an invalid
+            # index to SBValue.GetChildAtIndex "works" (it returns a non-valid
+            # SBValue). Asserting here causes scary error messages in the log,
+            # so just return None for compatibility.
             if self._get_display_hint() == 'map':
                 self._get_children(2 * (index + 1))
                 if index < (len(self._children) / 2):
@@ -271,7 +274,7 @@ def _make_child_provider_class(
                             gdb.gala_get_current_target().FindFirstType('int'))
                     else:
                         return _named_sbvalue(c[0], c[1].sbvalue())
-            raise IndexError('Child not present at given index.')
+            return None
 
         @_set_current_target
         def update(self) -> None:
