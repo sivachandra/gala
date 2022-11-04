@@ -1,5 +1,7 @@
 import lldb
 import os
+import runpy
+import sys
 import tempfile
 import time
 import traceback
@@ -26,21 +28,6 @@ modules_loaded_callbacks = []
 def debug_print(*args, **kwargs):
   if DEBUG_ENABLED:
     print("[%f]" % time.time(), *args, **kwargs)
-
-
-# Inserts `__name__ = "__main__"` at the beginning of the file. However, if the
-# script has any `from __future__ import X` lines, they MUST happen before any
-# actual code, so we scan backwards and insert our hack right after the last
-# such line.
-def insert_module_name_hack(script_code):
-  lines = script_code.splitlines()
-  current_line = len(lines) - 1
-  while current_line >= 0:
-    if lines[current_line].lstrip().startswith("from __future__"):
-      break
-    current_line -= 1
-  lines.insert(current_line + 1, '__name__ = "__main__"')
-  return "\n".join(lines)
 
 
 def register_modules_loaded_callback(callback):
@@ -77,54 +64,34 @@ class LLDBListenerThread(Thread):
   def log_loaded_script(self, file_name, original_name):
     if DEBUG_ENABLED:
       self.total_scripts_run += 1
-      if self.total_scripts_run % 1000 == 0:
-        debug_print("loaded script = %s (%s), %d loaded so far" %
-                    (file_name, original_name, self.total_scripts_run))
+      debug_print("loaded script = %s (%s), %d loaded so far" %
+                  (file_name, original_name, self.total_scripts_run))
 
   def run_script_code(self, file_name, script_code):
     loaded_scripts.add(file_name)
     try:
-      script_code = insert_module_name_hack(script_code)
-      exec(script_code)
+      exec(script_code, {__name__: "__main__", __file__: file_name})
       self.log_loaded_script(file_name, "embedded")
     except Exception as e:
       # We don't want autoload to crash if an error happens. For example, some
       # scripts might be unavailable, but we still want to autoload scripts that
       # are actually there. So, in case of error, just log it and return.
-      debug_print("Error trying to run embedded script '%s'" % file_name)
-      debug_print(traceback.format_exc())
+      print("Error trying to run embedded script '%s'" % file_name,
+            file=sys.stderr)
+      print(traceback.format_exc(), file=sys.stderr)
 
   def run_script_from_file(self, script_path):
     loaded_scripts.add(script_path)
     try:
-      debugger = lldb.SBDebugger.FindDebuggerWithID(self.debugger_id)
-      ci = debugger.GetCommandInterpreter()
-      res = lldb.SBCommandReturnObject()
-      # HACK: When gdb autoloads scripts, __name__ is equal to "__main__". We
-      # want to replicate this behavior, but I've only been able to make
-      # prettyprinter scripts work reliably by using `command script import` in
-      # lldb (as opposed to, for example, `exec`ing them directly from here).
-      # So we copy the script code to a temporary file for lldb to run, and
-      # insert at the beginning a `__name__ = "__main__"` assignment.
-      script_code = insert_module_name_hack(
-          open(os.path.join(self.script_base_dir, script_path), "r").read())
-      # In some platforms tmp.name can't be used to open the temporary file
-      # unless the NamedTemporaryFile object has been `close`d. So we pass
-      # `delete=False`, close it, run it, and delete it manually.
-      tmp = tempfile.NamedTemporaryFile(suffix=".py", delete=False)
-      tmp_file_name = tmp.name
-      tmp.write(script_code.encode("utf-8"))
-      tmp.close()
-      ci.HandleCommand("command script import " + tmp_file_name, res)
-      self.log_loaded_script(tmp_file_name, script_path)
-      if not KEEP_TEMP_FILES:
-        os.remove(tmp_file_name)
+      # Make script_path absolute.
+      script_path = os.path.join(self.script_base_dir, script_path)
+      runpy.run_path(script_path, run_name="__main__")
     except Exception as e:
       # We don't want autoload to crash if an error happens. For example, some
       # scripts might be unavailable, but we still want to autoload scripts that
       # are actually there. So, in case of error, just log it and return.
-      debug_print("Error trying to run script at '%s'" % script_path)
-      debug_print(traceback.format_exc())
+      print("Error trying to run script at '%s'" % script_path, file=sys.stderr)
+      print(traceback.format_exc(), file=sys.stderr)
 
   def process_scripts_section(self, section):
     size = section.GetFileByteSize()
