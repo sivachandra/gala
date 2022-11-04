@@ -57,14 +57,9 @@ struct StructWithAnonymousUnion : public MyStruct {
   };
 };
 
-StructWithAnonymousUnion struct_with_anonymous_union = []() {
-  StructWithAnonymousUnion result;
-  result.my_value = 12;
-  result.a = 34;
-  result.b = 56;
-  result.d = 78;
-  return result;
-}();
+StructWithAnonymousUnion struct_with_anonymous_union = {
+    {.my_value = 12}, 34, 56, {.d = 78},
+};
 
 // Pointer to struct, but typedef'd.
 std::vector<MyStruct> v = {{42}};

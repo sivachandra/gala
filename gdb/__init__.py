@@ -602,7 +602,7 @@ class Value(object):
     def __float__(self) -> float:
         return float(self._as_number())
 
-    def __getitem__(self, index: int) -> 'Value':
+    def __getitem__(self, index: Union['Value', Field, int, str]) -> 'Value':
         sbtype = self._sbvalue_object.GetType()
         # Keep the value to print in `val`. It's not always `self`:
         # - If ptr["member name"], we need to dereference the pointer.
@@ -619,9 +619,17 @@ class Value(object):
 
         stripped_sbtype, type_class = val._stripped_sbtype()
         # Casting to stripped_sbtype directly can, in some cases, make us lose
-        # the underlying address of the SBValue. Apply the Cast to a pointer
-        # instead, converting to and fro.
-        stripped_sbval = val.sbvalue().AddressOf().Cast(stripped_sbtype.GetPointerType()).Dereference()
+        # the underlying address of the SBValue. If possible, try to apply the
+        # Cast to a pointer instead, converting to and fro.
+        #
+        # However, in some other cases we can't get an address (for example,
+        # when debugging a core dump, calling AddressOf on the result of
+        # EvaluateExpression will return "No value"). In these cases we fall
+        # back to casting the value directly instead.
+        if val.sbvalue().AddressOf():
+          stripped_sbval = val.sbvalue().AddressOf().Cast(stripped_sbtype.GetPointerType()).Dereference()
+        else:
+          stripped_sbval = val.sbvalue().Cast(stripped_sbtype)
 
         if (type_class == lldb.eTypeClassClass or
             type_class == lldb.eTypeClassStruct or
@@ -654,12 +662,20 @@ class Value(object):
           except:
             raise error("Value can't be converted to integer.")
 
-        if type_class == lldb.eTypeClassPointer:
+        if type_class == lldb.eTypeClassArray:
+            addr = self._sbvalue_object.GetLoadAddress()
+            # Treating the array as a pointer works better in some cases (for
+            # example, if the original code used the "struct hack" and lldb
+            # believes the array has size 0). However, if we don't have a live
+            # process we might still be able to get the value if the array is a
+            # global, so try that.
+            if addr == lldb.LLDB_INVALID_ADDRESS:
+                elem_sbvalue = self._sbvalue_object.GetChildAtIndex(index)
+                return Value(elem_sbvalue)
+            elem_sbtype = self._sbvalue_object.GetType().GetArrayElementType()
+        elif type_class == lldb.eTypeClassPointer:
             addr = self._sbvalue_object.GetValueAsUnsigned()
             elem_sbtype = self._sbvalue_object.GetType().GetPointeeType()
-        elif type_class == lldb.eTypeClassArray:
-            addr = self._sbvalue_object.GetLoadAddress()
-            elem_sbtype = self._sbvalue_object.GetType().GetArrayElementType()
         else:
             raise error('Cannot subscript something of type `%s`.' %
                         str(sbtype))
