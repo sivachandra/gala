@@ -423,6 +423,8 @@ class Value(object):
     def _as_number(self) -> Union[int, float]:
         sbtype, _ = self._stripped_sbtype()
         type_flags = sbtype.GetTypeFlags()
+        if self._sbvalue_object.GetError().Fail():
+            raise error("%s" % self._sbvalue_object.GetError())
         if type_flags & lldb.eTypeIsEnumeration:
             sbtype = sbtype.GetEnumerationIntegerType().GetCanonicalType()
             type_flags = sbtype.GetTypeFlags()
@@ -567,6 +569,8 @@ class Value(object):
             return 1
 
     def __str__(self) -> str:
+        if not self._sbvalue_object.GetError().Success():
+            raise error("%s" % self._sbvalue_object.GetError())
         # For values of enum types we need to check if the value is one of the
         # enumerators in order to return a properly-formatted name. However, if
         # it's any other random integer value we just print the number.

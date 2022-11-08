@@ -22,7 +22,11 @@ print("array[Value(enum)] -> %d" % array[enum_index])
 # array as a struct member with struct hack. See cc file for details.
 struct_with_array = gdb.parse_and_eval("ptr_to_struct_with_array").dereference()
 elements = struct_with_array["elements"]
-print("struct hack: elements[1] -> %d" % elements[1])
+try:
+  print("struct hack: elements[1] -> %d" % elements[1])
+except:
+  # doesn't work without a process
+  pass
 
 # getitem on a struct
 my_struct = gdb.parse_and_eval("my_struct")
@@ -51,13 +55,34 @@ print("struct[anonymous union member].anon_member -> %d" %
 
 # getitem on pointer to array/struct
 ptr_to_array = gdb.parse_and_eval("ptr_to_array")
-print("ptr_to_array[Value(int)] -> %d" % ptr_to_array[int_index])
+try:
+  print("ptr_to_array[Value(int)] -> %d" % ptr_to_array[int_index])
+except:
+  # doesn't work without a process
+  pass
+
+print("Checking if out of bounds access raises an exception:")
+try:
+  v = ptr_to_array[1000000000000]
+  print("Value was created. Now trying to read it.")
+  print("v = %s" % v)
+  print("FAILED")
+except gdb.error as e:
+  print("ptr_to_array[out of bounds] -> gdb.error: %s" % e)
 
 ptr_to_struct = gdb.parse_and_eval("ptr_to_struct")
-print("ptr_to_struct[str] -> %d" % ptr_to_struct["my_value"])
+try:
+  print("ptr_to_struct[str] -> %d" % ptr_to_struct["my_value"])
+except:
+  # doesn't work without a process
+  pass
 
 typedefed_ptr_to_struct = gdb.parse_and_eval("typedefed_ptr_to_struct")
-print("typedefed_ptr_to_struct[str] -> %d" % typedefed_ptr_to_struct["my_value"])
+try:
+  print("typedefed_ptr_to_struct[str] -> %d" % typedefed_ptr_to_struct["my_value"])
+except:
+  # doesn't work without a process
+  pass
 
 # value["member_name"] on array of structs
 struct_array = gdb.parse_and_eval("struct_array")

@@ -23,6 +23,11 @@
 ; CHECK: struct[anonymous union member].anon_member -> 78
 
 ; CHECK: ptr_to_array[Value(int)] -> 22
+
+; CHECK: Checking if out of bounds access raises an exception
+; CHECK: Value was created
+; CHECK: ptr_to_array[out of bounds] -> gdb.error
+
 ; CHECK: ptr_to_struct[str] -> 99
 ; CHECK: typedefed_ptr_to_struct[str] -> 42
 ; CHECK: struct_array[str] -> 1234
@@ -40,7 +45,7 @@
 ; CHECK-NOPROCESS: array[Value(string)] -> gdb.error
 ; CHECK-NOPROCESS: array[Value(enum)] -> 66
 
-; CHECK-NOPROCESS: struct hack: elements[1] -> 0
+; Skip the "struct hack" check
 
 ; CHECK-NOPROCESS: struct[str] -> 99
 ; CHECK-NOPROCESS: struct[gdb.Field] -> 99
