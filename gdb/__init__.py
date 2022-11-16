@@ -866,7 +866,21 @@ class Value(object):
 
 
 class Command:
-    pass
+    # These constants are used by Command subclasses to register commands as
+    # part of some category. We still don't support custom commands but having
+    # those prevent some scripts from crashing.
+    COMMAND_NONE = -1
+    COMMAND_RUNNING = 0
+    COMMAND_DATA = 1
+    COMMAND_STACK = 2
+    COMMAND_FILES = 3
+    COMMAND_SUPPORT = 4
+    COMMAND_STATUS = 5
+    COMMAND_BREAKPOINTS = 6
+    COMMAND_TRACEPOINTS = 7
+    COMMAND_OBSCURE = 10
+    COMMAND_MAINTENANCE = 11
+    COMMAND_USER = 14
 
 
 def _RunCommand(command: str) -> str:
