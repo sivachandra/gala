@@ -6,7 +6,7 @@ import tempfile
 import time
 import traceback
 from threading import Thread
-from typing import Callable, Dict
+from typing import Callable, Dict, List, Optional
 
 # If true, log some info to stdout.
 DEBUG_ENABLED = False
@@ -139,14 +139,23 @@ class LLDBListenerThread(Thread):
           callback(event)
 
 
-def initialize(debugger: lldb.SBDebugger, script_base_dir: str) -> None:
+def initialize(debugger: lldb.SBDebugger,
+               script_base_dir: str,
+               excluded_paths: Optional[List[str]] = None) -> None:
   """Initializes autoloading of .debug_gdb_scripts entries.
 
   Args:
     - debugger: The debugger object passed from __lldb_init_module.
     - script_base_dir: the base directory that will be used for relative paths
       in .debug_gdb_scripts entries.
+    - excluded_files: a list of paths that should be ignored by autoload. These
+      must exactly match entries in .debug_gdb_scripts to have any effect.
   """
+  # Put excluded paths in the "loaded" list so they will get ignored if found.
+  if excluded_paths:
+    for path in excluded_paths:
+      loaded_scripts.add(path)
+
   thread = LLDBListenerThread(debugger, script_base_dir)
   thread.start()
 
