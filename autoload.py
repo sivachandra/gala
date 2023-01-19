@@ -6,6 +6,7 @@ import tempfile
 import time
 import traceback
 from threading import Thread
+from typing import Callable, Dict
 
 # If true, log some info to stdout.
 DEBUG_ENABLED = False
@@ -25,12 +26,13 @@ loaded_scripts = set()
 modules_processed = set()
 modules_loaded_callbacks = []
 
-def debug_print(*args, **kwargs):
+def debug_print(*args, **kwargs) -> None:
   if DEBUG_ENABLED:
     print("[%f]" % time.time(), *args, **kwargs)
 
 
-def register_modules_loaded_callback(callback):
+def register_modules_loaded_callback(
+    callback: Callable[[lldb.SBEvent], None]) -> None:
   """Registers a function to be called when lldb loads a new module.
 
   lldb currently doesn't allow multiple listeners for the same event. GALA's
@@ -45,7 +47,7 @@ def register_modules_loaded_callback(callback):
 
 class LLDBListenerThread(Thread):
 
-  def __init__(self, debugger, script_base_dir):
+  def __init__(self, debugger: lldb.SBDebugger, script_base_dir: str):
     Thread.__init__(self)
     # The object backing `lldb.debugger` is, at the time of this writing, placed
     # in the stack. If we share it directly with the thread we can run into a
@@ -61,7 +63,7 @@ class LLDBListenerThread(Thread):
 
     self.total_scripts_run = 0  # For debug logging.
 
-  def log_loaded_script(self, path, resolved_path):
+  def log_loaded_script(self, path: str, resolved_path: str) -> None:
     # `path` is the path as found in `.debug_gdb_scripts`.
     # `resolved_path` is the final path the file was loaded from.
     if DEBUG_ENABLED:
@@ -69,7 +71,7 @@ class LLDBListenerThread(Thread):
       debug_print("loaded script = %s (%s), %d loaded so far" %
                   (path, resolved_path, self.total_scripts_run))
 
-  def run_script_code(self, file_name, script_code):
+  def run_script_code(self, file_name: str, script_code: str) -> None:
     loaded_scripts.add(file_name)
     try:
       exec(script_code, {__name__: "__main__", __file__: file_name})
@@ -82,7 +84,7 @@ class LLDBListenerThread(Thread):
             file=sys.stderr)
       print(traceback.format_exc(), file=sys.stderr)
 
-  def run_script_from_file(self, script_path):
+  def run_script_from_file(self, script_path: str) -> None:
     loaded_scripts.add(script_path)
     try:
       # Make script_path absolute.
@@ -96,7 +98,7 @@ class LLDBListenerThread(Thread):
       print("Error trying to run script at '%s'" % script_path, file=sys.stderr)
       print(traceback.format_exc(), file=sys.stderr)
 
-  def process_scripts_section(self, section):
+  def process_scripts_section(self, section: lldb.SBSection) -> None:
     size = section.GetFileByteSize()
     debug_print("reading .debug_gdb_scripts section with size %d" % size)
     data = section.GetSectionData(0, size)
@@ -118,7 +120,7 @@ class LLDBListenerThread(Thread):
           self.run_script_code(file_name, script_code)
     debug_print("finished processing .debug_gdb_scripts_section")
 
-  def run(self):
+  def run(self) -> None:
     while True:
       event = lldb.SBEvent()
       if self.listener.WaitForEvent(1, event):
@@ -137,7 +139,7 @@ class LLDBListenerThread(Thread):
           callback(event)
 
 
-def initialize(debugger, script_base_dir):
+def initialize(debugger: lldb.SBDebugger, script_base_dir: str) -> None:
   """Initializes autoloading of .debug_gdb_scripts entries.
 
   Args:
@@ -149,5 +151,5 @@ def initialize(debugger, script_base_dir):
   thread.start()
 
 
-def __lldb_init_module(debugger, internal_dict):
+def __lldb_init_module(debugger: lldb.SBDebugger, internal_dict: Dict) -> None:
   initialize(debugger, os.getcwd())
