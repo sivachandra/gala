@@ -61,11 +61,13 @@ class LLDBListenerThread(Thread):
 
     self.total_scripts_run = 0  # For debug logging.
 
-  def log_loaded_script(self, file_name, original_name):
+  def log_loaded_script(self, path, resolved_path):
+    # `path` is the path as found in `.debug_gdb_scripts`.
+    # `resolved_path` is the final path the file was loaded from.
     if DEBUG_ENABLED:
       self.total_scripts_run += 1
       debug_print("loaded script = %s (%s), %d loaded so far" %
-                  (file_name, original_name, self.total_scripts_run))
+                  (path, resolved_path, self.total_scripts_run))
 
   def run_script_code(self, file_name, script_code):
     loaded_scripts.add(file_name)
@@ -84,8 +86,9 @@ class LLDBListenerThread(Thread):
     loaded_scripts.add(script_path)
     try:
       # Make script_path absolute.
-      script_path = os.path.join(self.script_base_dir, script_path)
-      runpy.run_path(script_path, run_name="__main__")
+      full_path = os.path.join(self.script_base_dir, script_path)
+      runpy.run_path(full_path, run_name="__main__")
+      self.log_loaded_script(script_path, full_path)
     except Exception as e:
       # We don't want autoload to crash if an error happens. For example, some
       # scripts might be unavailable, but we still want to autoload scripts that
