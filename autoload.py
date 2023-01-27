@@ -99,9 +99,9 @@ class LLDBListenerThread(Thread):
       print(traceback.format_exc(), file=sys.stderr)
 
   def process_scripts_section(self, section: lldb.SBSection) -> None:
-    size = section.GetFileByteSize()
+    data = section.GetSectionData()
+    size = data.GetByteSize()
     debug_print("reading .debug_gdb_scripts section with size %d" % size)
-    data = section.GetSectionData(0, size)
     error = lldb.SBError()
     current_offset = 0
     while current_offset < size:
