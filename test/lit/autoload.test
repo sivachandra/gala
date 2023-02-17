@@ -13,3 +13,4 @@
 ; RUN:          -o 'script time.sleep(2)' %t 2>&1 | FileCheck %s
 ; CHECK-DAG: Hi from autoload_this.py!
 ; CHECK-DAG: Hi from embedded script!
+; CHECK-DAG: Hi from embedded lldb-only script!

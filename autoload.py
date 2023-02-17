@@ -135,6 +135,13 @@ class LLDBListenerThread(Thread):
           section = module.FindSection(".debug_gdb_scripts")
           if section.IsValid():
             self.process_scripts_section(section)
+          # lldb doesn't have yet an equivalent to .debug_gdb_scripts on Linux.
+          # As a temporary solution, we autoload .debug_gala_lldb_scripts as
+          # well, so users migrating to lldb can start writing lldb scripts too
+          # without losing the autoloading functionality.
+          section = module.FindSection(".debug_gala_lldb_scripts")
+          if section.IsValid():
+            self.process_scripts_section(section)
         for callback in modules_loaded_callbacks:
           callback(event)
 
