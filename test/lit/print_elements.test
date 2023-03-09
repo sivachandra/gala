@@ -1,7 +1,21 @@
-; Checks that `gdb.parameter('print elements') returns the value of the
-; `target.max-children-count` lldb setting.
+Checks that `gdb.parameter('print elements') returns the value of the
+`target.max-children-count` lldb setting.
 
-; RUN: %lldb -b -o 'settings set target.max-children-count 99' \
-; RUN:          -o 'script import print_elements' | FileCheck %s
-; CHECK: gdb.parameter('print elements'): 99
+RUN: %clangxx -g -o %t print_elements/print_elements.cc
+RUN: %lldb -b -o 'command script import print_elements' %t | FileCheck %s
 
+Check target.max-children-count values are correctly translated to "print
+elements" values.
+
+CHECK: gdb.parameter('print elements'): None
+CHECK: gdb.parameter('print elements'): 0
+CHECK: gdb.parameter('print elements'): 10
+
+Check that the value of the 'print elements' setting prevents `children` from
+being called too many times. GALA returns N+1 children to lldb so that lldb
+still prints the "..." at the end of the children list if it's truncated.
+
+In this case, for 'set print elements 10' we would print children 0-9 and also
+yield child 10. So check that we don't yield 11.
+
+CHECK-NOT: yielding child 11

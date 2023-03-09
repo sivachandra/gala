@@ -912,7 +912,12 @@ def parameter(s: str) -> Any:
     # and 'target.max-string-summary-length', but max-children-count seems like
     # a closer match.
     if s == "print elements":
-        return int(_GetSetting('target.max-children-count'))
+        max_children_count = int(_GetSetting('target.max-children-count'))
+        # lldb treats all negative values as unlimited.
+        if max_children_count < 0:
+          return None
+        else:
+          return max_children_count
     return None
 
 

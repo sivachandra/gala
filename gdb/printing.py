@@ -217,6 +217,28 @@ def _make_child_provider_class(
 
         @_set_current_target
         def num_children(self, max_count: int) -> int:
+            # gdb prettyprinters don't directly compute the number of children.
+            # They expose a `children` iterator function instead, and it will
+            # be called at most as many times as specified by `set print
+            # elements`.
+            #
+            # This is a problem because if we want to determine the actual
+            # number of children we might end up calling the iterator an
+            # arbitrarily large number of times. In the worst case, we try to
+            # print an uninitialized value, the printer reads a garbage "size"
+            # value, and it tries to generate billions of children.
+            #
+            # So we "lie" to lldb. We'll give it at most
+            # (target.max-children-count + 1) children. This way lldb still
+            # knows when it's truncating the output and prints the "..." at the
+            # end, but we don't get stuck calling `children` forever.
+            #
+            # Note this only affects the number of children shown by lldb, but
+            # the summary string can and should still print the real size.
+            print_elements = gdb.parameter("print elements")
+            if print_elements is not None:
+              max_count = min(max_count, print_elements + 1)
+
             if self._get_display_hint() == 'map':
                 self._get_children(2 * max_count)
                 return min(len(self._children) // 2, max_count)
