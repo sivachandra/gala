@@ -18,7 +18,8 @@ import gdb
 import lldb
 
 def get_basic_type(t):
-  # This is not equivalent to what gdb does. For example, if you have:
+  # SBType.GetCanonicalType() is not equivalent to what gdb does. For example,
+  # if you have:
   #
   # typedef int* pint;
   # typedef pint* ppint;
@@ -28,13 +29,19 @@ def get_basic_type(t):
   # technically not a typedef, but a pointer.
   #
   # lldb, however, will give you `int **` even if you try to just strip
-  # qualifiers with `SBType.GetUnqualifiedType`. So I'm not sure we can get the
-  # exact behavior of "remove qualifiers and strip layers of typedefs only until
-  # you find a pointer type".
-  #
-  # This will do the trick for basic cases like "get the underlying unqualified
-  # type in order to match a RegexpCollectionPrettyPrinter".
-  return gdb.Type(t.sbtype().GetUnqualifiedType().GetCanonicalType())
+  # qualifiers with `SBType.GetUnqualifiedType`. And neither
+  # `GetUnqualifiedType` nor `GetCanonicalType` will remove references. So in
+  # order to simulate what lldb does, let's strip typedefs and references layer
+  # by layer until we find a type that's neither.
+  sbtype = t.sbtype()
+  while True:
+    if sbtype.IsTypedefType():
+      sbtype = sbtype.GetTypedefedType()
+    elif sbtype.IsReferenceType():
+      sbtype = sbtype.GetDereferencedType()
+    else:
+      break
+  return gdb.Type(sbtype)
 
 def _sbtype_has_field(sbtype, field_name):
   """Recursive helper to have has_field search up the inheritance hierarchy."""
