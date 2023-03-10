@@ -10,7 +10,7 @@ if is_lldb:
   # Reference-typed SBValues show up as arguments to prettyprinters when the
   # prettyprinter doesn't skip references.
   #
-  # However, it's hard to convince get implementation of gdb.parse_and_eval to
+  # However, it's hard to convince our implementation of gdb.parse_and_eval to
   # return a reference value, because EvaluateExpression will return a
   # `MyStruct` value when evaluating "ref", instead of a `MyStruct &`.
   #
