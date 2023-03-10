@@ -346,6 +346,9 @@ class Type(object):
     def pointer(self) -> 'Type':
         return Type(self._sbtype_object.GetPointerType())
 
+    def reference(self) -> 'Type':
+        return Type(self._sbtype_object.GetReferenceType())
+
     def template_argument(self, n: int) -> Union['Type', 'Value']:
         # TODO: This is woefully incomplete!
         return Type(self._sbtype_object.GetTemplateArgumentType(n))
