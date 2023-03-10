@@ -792,11 +792,16 @@ class Value(object):
 
     @property
     def address(self) -> 'Value':
-        ptr_sbvalue = self._sbvalue_object.AddressOf()
+        # in gdb, the address property of a T& gdb.Value returns the address of
+        # the pointed-to T object, not the address of the reference itself.
+        sbvalue = self._sbvalue_object
+        if self.type.code == TYPE_CODE_REF:
+          sbvalue = sbvalue.Dereference()
+        ptr_sbvalue = sbvalue.AddressOf()
         if not ptr_sbvalue.IsValid():
-            load_address = self._sbvalue_object.GetLoadAddress()
-            new_sbvalue = self._sbvalue_object.CreateValueFromAddress(
-                '', load_address, self._sbvalue_object.GetType())
+            load_address = sbvalue.GetLoadAddress()
+            new_sbvalue = sbvalue.CreateValueFromAddress('', load_address,
+                                                         sbvalue.GetType())
             ptr_sbvalue = new_sbvalue.AddressOf()
         return Value(ptr_sbvalue)
 

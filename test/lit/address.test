@@ -1,0 +1,8 @@
+Checks that `gdb.Value.address` behaves like gdb with reference variables.
+
+RUN: %clangxx -g -o %t address/address.cc
+RUN: %lldb -b -o 'b address.cc:9' -o 'r' -o 'command script import address' %t | FileCheck %s
+
+CHECK: s.address = [[SADDR:[0-9a-f]+]]
+CHECK: ref.type = MyStruct &
+CHECK: ref.address = [[SADDR]]
