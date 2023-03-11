@@ -423,7 +423,6 @@ def register_pretty_printer(obj: Optional[GdbObjectFile],
     # Default type options for all GALA formatters.
     type_options = (lldb.eTypeOptionCascade |
                     lldb.eTypeOptionSkipPointers |
-                    lldb.eTypeOptionSkipReferences |
                     lldb.eTypeOptionHideEmptyAggregates)
 
     # Create a category named after the printer.

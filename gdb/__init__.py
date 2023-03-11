@@ -412,7 +412,7 @@ def _get_child_member_with_name(
 
 class Value(object):
     def __init__(self, sbvalue_object: lldb.SBValue):
-        self._sbvalue_object = sbvalue_object
+        self._sbvalue_object = sbvalue_object.GetNonSyntheticValue()
 
     def sbvalue(self) -> lldb.SBValue:
         return self._sbvalue_object
