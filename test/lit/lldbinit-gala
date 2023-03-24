@@ -1,2 +1,10 @@
 command script import gdb
 command script import gdb.printing
+
+# TODO: remove this if/when dwim-print changes the default back to printing
+# persistent results, or if `--persistent-result off` gets fixed and stops
+# causing names of synthetic children to get skipped.
+command unalias print
+command unalias p
+command alias -- print dwim-print --persistent-result on --
+command alias -- p dwim-print --persistent-result on --
