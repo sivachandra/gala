@@ -458,6 +458,22 @@ class Value(object):
                 'Conversion of type %s to number is not supported.'%sbtype.name)
         return numval
 
+    def _gdbvalue_from_number(self, number: Union[int, float]) -> 'Value':
+        data = lldb.SBData()
+        if isinstance(number, int):
+            if number < 0:
+              data.SetDataFromSInt64Array([number])
+            else:
+              data.SetDataFromUInt64Array([number])
+            result_type = get_builtin_sbtype('long')
+        elif isinstance(number, float):
+            data.SetDataFromDoubleArray([number])
+            result_type = get_builtin_sbtype('double')
+        else:
+            raise TypeError('_gdbvalue_from_number requires a number.')
+        return Value(self._sbvalue_object.CreateValueFromData(
+            '', data, result_type))
+
     def _binary_op(self,
                    other: Union['Value', int, float],
                    op: int,
@@ -544,17 +560,7 @@ class Value(object):
                 res = self._as_number() >> other_val
         else:
             raise RuntimeError('Unsupported or incorrect binary operation.')
-        data = lldb.SBData()
-        if isinstance(res, int):
-            data.SetDataFromUInt64Array([res])
-            result_type = get_builtin_sbtype('long')
-        elif isinstance(res, float):
-            data.SetDataFromDoubleArray([res])
-            result_type = get_builtin_sbtype('double')
-        else:
-            raise RuntimeError('Unsupported result type in binary operation.')
-        return Value(self._sbvalue_object.CreateValueFromData(
-            '', data, result_type))
+        return self._gdbvalue_from_number(res)
 
     def _cmp(self, other: Union['Value', int, float]) -> int:
         if (isinstance(other, int) or isinstance(other, float)):
@@ -780,11 +786,7 @@ class Value(object):
         value = self._as_number()
         if not isinstance(value, int):
             raise TypeError("Bad operand type for unary ~")
-        res = ~value
-        data = lldb.SBData()
-        data.SetDataFromUInt64Array([res])
-        return Value(self._sbvalue_object.CreateValueFromData(
-            '', data, get_builtin_sbtype('long')))
+        return self._gdbvalue_from_number(~value)
 
     @property
     def type(self) -> Type:
