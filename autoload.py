@@ -18,6 +18,9 @@ SECTION_SCRIPT_ID_SCHEME_FILE = 3
 SECTION_SCRIPT_ID_PYTHON_TEXT = 4
 SECTION_SCRIPT_ID_SCHEME_TEXT = 6
 
+SCRIPT_TYPE_GDB = "gdb"
+SCRIPT_TYPE_LLDB = "lldb"
+
 # gdb uses the script name to avoid running the same script twice. This set
 # allows us to do the same.
 loaded_scripts = set()
@@ -84,12 +87,18 @@ class LLDBListenerThread(Thread):
             file=sys.stderr)
       print(traceback.format_exc(), file=sys.stderr)
 
-  def run_script_from_file(self, script_path: str) -> None:
+  def run_script_from_file(self, script_path: str, script_type: str) -> None:
     loaded_scripts.add(script_path)
     try:
       # Make script_path absolute.
       full_path = os.path.join(self.script_base_dir, script_path)
-      runpy.run_path(full_path, run_name="__main__")
+      if script_type == SCRIPT_TYPE_GDB:
+        runpy.run_path(full_path, run_name="__main__")
+      elif script_type == SCRIPT_TYPE_LLDB:
+        debugger = lldb.SBDebugger.FindDebuggerWithID(self.debugger_id)
+        debugger.HandleCommand("command script import %s" % full_path)
+      else:
+        raise RuntimeError("Invalid script type '%s'" % script_type)
       self.log_loaded_script(script_path, full_path)
     except Exception as e:
       # We don't want autoload to crash if an error happens. For example, some
@@ -98,7 +107,7 @@ class LLDBListenerThread(Thread):
       print("Error trying to run script at '%s'" % script_path, file=sys.stderr)
       print(traceback.format_exc(), file=sys.stderr)
 
-  def process_scripts_section(self, section: lldb.SBSection) -> None:
+  def process_gdb_scripts_section(self, section: lldb.SBSection) -> None:
     data = section.GetSectionData()
     size = data.GetByteSize()
     debug_print("reading .debug_gdb_scripts section with size %d" % size)
@@ -111,7 +120,7 @@ class LLDBListenerThread(Thread):
       current_offset += len(entry_string) + 2
       if (entry_type == SECTION_SCRIPT_ID_PYTHON_FILE and
           entry_string not in loaded_scripts):
-        self.run_script_from_file(entry_string)
+        self.run_script_from_file(entry_string, SCRIPT_TYPE_GDB)
       elif entry_type == SECTION_SCRIPT_ID_PYTHON_TEXT:
         newline_index = entry_string.find('\n')
         file_name = entry_string[:newline_index]
@@ -119,6 +128,22 @@ class LLDBListenerThread(Thread):
           script_code = entry_string[newline_index + 1:]
           self.run_script_code(file_name, script_code)
     debug_print("finished processing .debug_gdb_scripts_section")
+
+  def process_gala_lldb_scripts_section(self, section: lldb.SBSection) -> None:
+    data = section.GetSectionData()
+    size = data.GetByteSize()
+    debug_print("reading .debug_gala_scripts section with size %d" % size)
+    error = lldb.SBError()
+    current_offset = 0
+    while current_offset < size:
+      entry_type = data.GetUnsignedInt8(error, current_offset)
+      entry_string = data.GetString(error, current_offset + 1)
+      # skip the whole entry: type (1 byte) + string + null terminator (1 byte).
+      current_offset += len(entry_string) + 2
+      if (entry_type == SECTION_SCRIPT_ID_PYTHON_FILE and
+          entry_string not in loaded_scripts):
+        self.run_script_from_file(entry_string, SCRIPT_TYPE_LLDB)
+    debug_print("finished processing .debug_gala_lldb_scripts_section")
 
   def run(self) -> None:
     while True:
@@ -134,14 +159,14 @@ class LLDBListenerThread(Thread):
           modules_processed.add(str(module))
           section = module.FindSection(".debug_gdb_scripts")
           if section.IsValid():
-            self.process_scripts_section(section)
+            self.process_gdb_scripts_section(section)
           # lldb doesn't have yet an equivalent to .debug_gdb_scripts on Linux.
           # As a temporary solution, we autoload .debug_gala_lldb_scripts as
           # well, so users migrating to lldb can start writing lldb scripts too
           # without losing the autoloading functionality.
           section = module.FindSection(".debug_gala_lldb_scripts")
           if section.IsValid():
-            self.process_scripts_section(section)
+            self.process_gala_lldb_scripts_section(section)
         for callback in modules_loaded_callbacks:
           callback(event)
 
