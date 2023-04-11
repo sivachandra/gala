@@ -46,6 +46,10 @@ try:
 except gdb.error as e:
   print("struct[int] -> gdb.error: %s" % e)
 
+# getitem on a typedef'd struct
+typedefed_struct = gdb.parse_and_eval("typedefed_struct")
+print("typedefed_struct[str] -> %d" % typedefed_struct["my_value"])
+
 # getitem on struct with a base class and an anonymous union.
 struct_with_anonymous_union = gdb.parse_and_eval("struct_with_anonymous_union")
 print("struct[anonymous union member].base_member -> %d" %

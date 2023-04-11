@@ -19,6 +19,9 @@
 ; CHECK: struct[gdb.Field] -> 99
 ; CHECK: struct[str/invalid] -> gdb.error
 ; CHECK: struct[int] -> gdb.error
+
+; CHECK: typedefed_struct[str] -> 777
+
 ; CHECK: struct[anonymous union member].base_member -> 12
 ; CHECK: struct[anonymous union member].anon_member -> 78
 
@@ -51,6 +54,9 @@
 ; CHECK-NOPROCESS: struct[gdb.Field] -> 99
 ; CHECK-NOPROCESS: struct[str/invalid] -> gdb.error
 ; CHECK-NOPROCESS: struct[int] -> gdb.error
+
+; CHECK-NOPROCESS: typedefed_struct[str] -> 777
+
 ; CHECK-NOPROCESS: struct[anonymous union member].base_member -> 12
 ; CHECK-NOPROCESS: struct[anonymous union member].anon_member -> 78
 

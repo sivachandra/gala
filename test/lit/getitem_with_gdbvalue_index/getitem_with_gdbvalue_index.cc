@@ -45,6 +45,9 @@ struct MyStruct {
 MyStruct my_struct = {99};
 MyStruct *ptr_to_struct = &my_struct;
 
+typedef MyStruct TypedefedStruct;
+TypedefedStruct typedefed_struct = {777};
+
 // A struct with a base class and an anonymous union. lldb has known issues
 // getting the right member with SBValue::GetChildMemberWithName() so we need to
 // test the workaround here.

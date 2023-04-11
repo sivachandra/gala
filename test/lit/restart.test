@@ -1,0 +1,43 @@
+Checks that cached values after a restart still work.
+
+We've observed the following failure mode:
+
+1. A prettyprinter caches some value because gdb.parse_and_eval is expensive in
+   LLDB.
+
+2. The user restarts a process.
+
+3. cached_value["member"] no longer works because GALA's Value.__getitem__  used
+   to `Cast` the value to its canonical type and this made lldb lose the values
+   of members somehow.
+
+This is a regression test for that pattern.
+
+RUN: %clangxx -g -o %t restart/test_program.cc
+RUN: %lldb -b \
+RUN:       -o 'script import restart' \
+RUN:       -o 'b main' \
+RUN:       -o 'r' \
+RUN:       -o 'p s' \
+RUN:       -o 'process kill' \
+RUN:       -o 'r' \
+RUN:       -o 'p s' %t | FileCheck %s
+
+Skip lldb output until our first print command and check the printed struct.
+
+CHECK: p s
+CHECK: A pretty MyStruct
+CHECK: [MyStruct::static_data.x] = 11
+CHECK: [MyStruct::static_data.y] = 22
+CHECK: [pretty_value] = 9999
+
+Check again after restart
+
+CHECK: p s
+CHECK: A pretty MyStruct
+CHECK: [MyStruct::static_data.x] = 11
+CHECK: [MyStruct::static_data.y] = 22
+CHECK: [pretty_value] = 9999
+
+
+
