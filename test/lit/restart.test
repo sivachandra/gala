@@ -13,6 +13,13 @@ We've observed the following failure mode:
 
 This is a regression test for that pattern.
 
+NOTE: we need the `process kill` command because when we have a running process
+lldb asks to confirm the restart, and never reaches the second `run` command.
+Another option would be `-o 'r' -o 'y'` to confirm, but I think injecting a 'y'
+this way is less clear and less robust (for example, someone could add a feature
+to detect we're not running the command interactively and skip the
+confirmation step).
+
 RUN: %clangxx -g -o %t restart/test_program.cc
 RUN: %lldb -b \
 RUN:       -o 'script import restart' \
