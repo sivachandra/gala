@@ -105,6 +105,13 @@ def _make_lldb_summary_function(
     def wrapper(sbvalue: lldb.SBValue, internal_dict: LldbInternalDict) -> str:
         old_target = gdb.gala_set_current_target(sbvalue.GetTarget())
         try:
+            # LLDB "helpfully" dereferences pointers when trying to get the
+            # children of a value, so lldb-vscode users need GALA printers to
+            # follow pointers. However, existing gdb prettyprinters won't
+            # necessarily work when getting a T* instead of a T, so we need
+            # to dereference pointers before calling the prettyprinter.
+            if sbvalue.GetType().IsPointerType():
+                sbvalue = sbvalue.Dereference()
             pp = make_printer_func(gdb.Value(sbvalue.GetNonSyntheticValue()))
             if pp:
                 try:
@@ -167,6 +174,8 @@ def _make_child_provider_class(
     class Provider:
         def __init__(
                 self, sbvalue: lldb.SBValue, internal_dict: LldbInternalDict):
+            if sbvalue.GetType().IsPointerType():
+                sbvalue = sbvalue.Dereference()
             self._sbvalue = sbvalue
             self._pp = None
             self._children = []
@@ -422,7 +431,6 @@ def register_pretty_printer(obj: Optional[GdbObjectFile],
 
     # Default type options for all GALA formatters.
     type_options = (lldb.eTypeOptionCascade |
-                    lldb.eTypeOptionSkipPointers |
                     lldb.eTypeOptionHideEmptyAggregates)
 
     # Create a category named after the printer.

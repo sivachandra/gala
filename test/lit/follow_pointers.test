@@ -1,0 +1,6 @@
+RUN: %clangxx -g -o %t follow_pointers/test_program.cc
+RUN: %lldb -b -o 'b main' -o 'r' -o 'command script import follow_pointers' %t | FileCheck %s
+
+CHECK: child.GetName() = [pretty_value]
+CHECK: child.GetValueAsSigned() = 9999
+
