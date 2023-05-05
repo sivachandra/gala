@@ -3,6 +3,11 @@ asm(".pushsection \".debug_gdb_scripts\", \"MS\",%progbits,1\n" \
     ".asciz \"autoload_test/autoload_this_gdb.py\"\n" \
     ".popsection\n");
 
+asm(".pushsection \".debug_gdb_scripts\", \"MS\",%progbits,1\n" \
+    ".byte 1\n" \
+    ".asciz \"autoload_test/excluded_script.py\"\n" \
+    ".popsection\n");
+
 asm(".pushsection \".debug_gala_lldb_scripts\", \"MS\",%progbits,1\n" \
     ".byte 1\n" \
     ".asciz \"autoload_test/autoload_this_lldb.py\"\n" \

@@ -3,14 +3,16 @@
 ; There are two interesting things in the way we run this test:
 ;
 ; 1. We want to ensure autoload works correctly if we initialize it without an
-;    existing target. So we run the init command with `--one-line-before-file`.
+;    existing target. So we run the init commands with `--one-line-before-file`.
 ; 2. Autoload uses a listener thread, and in batch mode (`-b`) lldb can exit
 ;    before the autoloaded script has time to run. To give it some time to run
 ;    we use python to sleep lldb for a couple of seconds before quitting.
 
-; RUN: %lldb -b --one-line-before-file 'command script import autoload' \
-; RUN:          -o 'script import time' \
-; RUN:          -o 'script time.sleep(2)' %t 2>&1 | FileCheck %s
-; CHECK-DAG: Hi from autoload_this_gdb.py!
-; CHECK-DAG: Hi from autoload_this_lldb.py! <module 'autoload_this_lldb' from '{{.*}}'>
-; CHECK-DAG: Hi from embedded script!
+; RUN: %lldb -b --one-line-before-file "script import autoload" \
+; RUN:          --one-line-before-file "script autoload.initialize(lldb.debugger, os.getcwd(), ['.*excluded.*'])" \
+; RUN:          -o "script import time" \
+; RUN:          -o "script time.sleep(2)" %t 2>&1 | FileCheck %s
+; CHECK: Hi from autoload_this_gdb.py!
+; CHECK-NOT: Hi from excluded_script.py!
+; CHECK: Hi from embedded script!
+; CHECK: Hi from autoload_this_lldb.py! <module 'autoload_this_lldb' from '{{.*}}'>

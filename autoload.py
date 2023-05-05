@@ -1,5 +1,6 @@
 import lldb
 import os
+import re
 import runpy
 import sys
 import tempfile
@@ -10,7 +11,6 @@ from typing import Callable, Dict, List, Optional
 
 # If true, log some info to stdout.
 DEBUG_ENABLED = False
-KEEP_TEMP_FILES = False
 
 # Types of .debug_gdb_scripts entries.
 SECTION_SCRIPT_ID_PYTHON_FILE = 1
@@ -50,7 +50,8 @@ def register_modules_loaded_callback(
 
 class LLDBListenerThread(Thread):
 
-  def __init__(self, debugger: lldb.SBDebugger, script_base_dir: str):
+  def __init__(self, debugger: lldb.SBDebugger, script_base_dir: str,
+               excluded_patterns: List[re.Pattern]):
     Thread.__init__(self)
     # The object backing `lldb.debugger` is, at the time of this writing, placed
     # in the stack. If we share it directly with the thread we can run into a
@@ -63,8 +64,18 @@ class LLDBListenerThread(Thread):
         debugger, lldb.SBTarget.GetBroadcasterClassName(),
         lldb.SBTarget.eBroadcastBitModulesLoaded)
     self.script_base_dir = script_base_dir
+    self.excluded_patterns = excluded_patterns
 
     self.total_scripts_run = 0  # For debug logging.
+
+  def matches_exclusion_list(self, script_path: str) -> bool:
+    debug_print("checking '%s' against exclusion list" % script_path)
+    for p in self.excluded_patterns:
+      if p.match(script_path):
+        debug_print(
+            "'%s' was excluded by pattern '%s'" % (script_path, p.pattern))
+        return True
+    return False
 
   def log_loaded_script(self, path: str, resolved_path: str) -> None:
     # `path` is the path as found in `.debug_gdb_scripts`.
@@ -119,12 +130,14 @@ class LLDBListenerThread(Thread):
       # skip the whole entry: type (1 byte) + string + null terminator (1 byte).
       current_offset += len(entry_string) + 2
       if (entry_type == SECTION_SCRIPT_ID_PYTHON_FILE and
-          entry_string not in loaded_scripts):
+          entry_string not in loaded_scripts and
+          not self.matches_exclusion_list(entry_string)):
         self.run_script_from_file(entry_string, SCRIPT_TYPE_GDB)
       elif entry_type == SECTION_SCRIPT_ID_PYTHON_TEXT:
         newline_index = entry_string.find('\n')
         file_name = entry_string[:newline_index]
-        if file_name not in loaded_scripts:
+        if (file_name not in loaded_scripts and
+            not self.matches_exclusion_list(file_name)):
           script_code = entry_string[newline_index + 1:]
           self.run_script_code(file_name, script_code)
     debug_print("finished processing .debug_gdb_scripts_section")
@@ -141,7 +154,8 @@ class LLDBListenerThread(Thread):
       # skip the whole entry: type (1 byte) + string + null terminator (1 byte).
       current_offset += len(entry_string) + 2
       if (entry_type == SECTION_SCRIPT_ID_PYTHON_FILE and
-          entry_string not in loaded_scripts):
+          entry_string not in loaded_scripts and
+          not self.matches_exclusion_list(entry_string)):
         self.run_script_from_file(entry_string, SCRIPT_TYPE_LLDB)
     debug_print("finished processing .debug_gala_lldb_scripts_section")
 
@@ -180,15 +194,13 @@ def initialize(debugger: lldb.SBDebugger,
     - debugger: The debugger object passed from __lldb_init_module.
     - script_base_dir: the base directory that will be used for relative paths
       in .debug_gdb_scripts entries.
-    - excluded_files: a list of paths that should be ignored by autoload. These
-      must exactly match entries in .debug_gdb_scripts to have any effect.
+    - excluded_paths: a list of path regular expression strings that should be
+      ignored by autoload. If a .debug_gdb_scripts or .debug_lldb_scripts entry
+      matches any of them, it won't be loaded.
   """
-  # Put excluded paths in the "loaded" list so they will get ignored if found.
-  if excluded_paths:
-    for path in excluded_paths:
-      loaded_scripts.add(path)
-
-  thread = LLDBListenerThread(debugger, script_base_dir)
+  excluded_paths = excluded_paths or []
+  excluded_patterns = [re.compile(p) for p in excluded_paths]
+  thread = LLDBListenerThread(debugger, script_base_dir, excluded_patterns)
   thread.start()
 
 
