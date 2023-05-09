@@ -117,10 +117,7 @@ def _make_lldb_summary_function(
                 try:
                     summary = str(pp.to_string())
                 except:
-                    _print_exc(
-                        'Error calling "to_string" method of a '
-                        'GDB pretty printer.')
-                    summary = ''
+                    summary = 'Error generating summary string.'
                 if (hasattr(pp, 'display_hint') and
                     pp.display_hint() == 'string'):
                     summary = '"%s"' % summary
@@ -216,8 +213,18 @@ def _make_child_provider_class(
                     self._children.append(next_child)
                     self._iter_count += 1
             except:
-                _print_exc(
-                    'Error iterating over pretty printer children.')
+                self._children = [
+                    ("LLDB ERROR",
+                     gdb.Value(self._sbvalue.CreateValueFromExpression(
+                         "","\"Can't retrieve children. This is normal if "
+                         "the variable hasn't been initialized yet\"")))
+                ]
+                # Append the real non-synthetic children. This way the user can
+                # still inspect the underlying members in cases of memory
+                # corruption, similar to not having a prettyprinter at all.
+                self._children += [
+                    (c.GetName(), gdb.Value(c))
+                    for c in self._sbvalue.GetNonSyntheticValue()]
 
         @_set_current_target
         def _get_display_hint(self) -> str:
