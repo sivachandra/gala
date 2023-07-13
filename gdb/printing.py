@@ -146,19 +146,41 @@ def _set_current_target(method: Callable) -> Callable:
     return wrapper
 
 
-def _named_sbvalue(name: str, v: lldb.SBValue) -> lldb.SBValue:
-    """Creates an SBValue equivalent to `val`, but with name `name`.
+def _named_sbvalue(
+        parent: lldb.SBValue, name: str, v: gdb.Value | int | str
+) -> lldb.SBValue:
+    """Creates an SBValue equivalent to `v`, but with name `name`.
 
     For a child provider we want to create children with the appropriate name,
     because these value names are shown as keys. However, the SB API doesn't
     provide a way to clone an existing SBValue with a different name. So we use
     CreateValueFromAddress if possible (so that we can call AddressOf() on the
     children values, for example), and fall back to CreateValueFromData if not.
+
+    We also support `int` and `str` values because prettyprinter scripts
+    sometimes return values computed in Python rather than returned from gdb.
     """
-    if v.GetLoadAddress() != lldb.LLDB_INVALID_ADDRESS:
-        return v.CreateValueFromAddress(name, v.GetLoadAddress(), v.GetType())
+    if isinstance(v, gdb.Value):
+        sbv = v.sbvalue()
+        if sbv.GetLoadAddress() != lldb.LLDB_INVALID_ADDRESS:
+            return sbv.CreateValueFromAddress(
+                    name, sbv.GetLoadAddress(), sbv.GetType())
+        else:
+            return sbv.CreateValueFromData(name, sbv.GetData(), sbv.GetType())
+    elif isinstance(v, int):
+        data = lldb.SBData()
+        data.SetDataFromUInt64Array([v])
+        return parent.CreateValueFromData(
+                name, data, gdb.gala_get_current_target().GetBasicType(
+                        lldb.eBasicTypeInt))
     else:
-        return v.CreateValueFromData(name, v.GetData(), v.GetType())
+        # Convert to str as a last resort.
+        s = str(v)
+        data = lldb.SBData()
+        data.SetDataFromCString(s)
+        return parent.CreateValueFromData(
+                name, data, gdb.gala_get_current_target().GetBasicType(
+                        lldb.eBasicTypeChar).GetArrayType(len(s)))
 
 def _make_child_provider_class(
     make_printer_func: GdbMakePrinterFunc) -> LldbChildProvider:
@@ -290,28 +312,12 @@ def _make_child_provider_class(
                             key_str = str(key)
                     else:
                         key_str = str(key)
-                    if isinstance(val, gdb.Value):
-                        return _named_sbvalue('[%s]' % key_str, val.sbvalue())
-                    else:
-                        data = lldb.SBData()
-                        data.SetDataFromUInt64Array([int(val)])
-                        return self._sbvalue.CreateValueFromData(
-                            '[%s]' % key_str,
-                            data,
-                            gdb.gala_get_current_target().FindFirstType('int'))
+                    return _named_sbvalue(self._sbvalue, '[%s]' % key_str, val)
             else:
                 self._get_children(index + 1)
                 if index < len(self._children):
                     c = self._children[index]
-                    if not isinstance(c[1], gdb.Value):
-                        data = lldb.SBData()
-                        data.SetDataFromUInt64Array([int(c[1])])
-                        return self._sbvalue.CreateValueFromData(
-                            c[0],
-                            data,
-                            gdb.gala_get_current_target().FindFirstType('int'))
-                    else:
-                        return _named_sbvalue(c[0], c[1].sbvalue())
+                    return _named_sbvalue(self._sbvalue, c[0], c[1])
             return None
 
         @_set_current_target

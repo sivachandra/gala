@@ -1,0 +1,11 @@
+Checks that returning int or str values instead of gdb.Value objects works.
+
+RUN: %clangxx -g -o %t return_value/test_program.cc
+RUN: %lldb -b \
+RUN:       -o 'script import return_value' \
+RUN:       -o 'p s' %t | FileCheck %s
+
+CHECK: [gdb_value] = 1111
+CHECK: [int_value] = 1234
+CHECK: [str_value] = "some_string"
+
