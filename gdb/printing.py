@@ -209,6 +209,7 @@ def _make_child_provider_class(
             except:
                 _print_exc(
                     'Error calling into GDB printer "%s".' % make_printer_func)
+                return
             if not self._pp:
                 raise RuntimeError('Prettyprinter does not match given value.')
 
