@@ -1,0 +1,6 @@
+RUN: %clangxx -g -o %t gdbvalue_constructor/test_program.cc
+RUN: %lldb -b -o 'script import gdbvalue_constructor' %t | FileCheck %s
+CHECK: int: 123
+CHECK: float: 567.8
+CHECK: gdb.Value: 123
+CHECK: int from raw data: -1

@@ -410,9 +410,63 @@ def _get_child_member_with_name(
     return result
 
 
+def _gdbvalue_from_number(number: Union[int, float]) -> 'Value':
+    data = lldb.SBData()
+    if isinstance(number, int):
+        if number < 0:
+          data.SetDataFromSInt64Array([number])
+        else:
+          data.SetDataFromUInt64Array([number])
+        result_type = get_builtin_sbtype('long')
+    elif isinstance(number, float):
+        data.SetDataFromDoubleArray([number])
+        result_type = get_builtin_sbtype('double')
+    else:
+        raise TypeError('_gdbvalue_from_number requires a number.')
+    return Value(gala_get_current_target().CreateValueFromData(
+        'value', data, result_type))
+
+
 class Value(object):
-    def __init__(self, sbvalue_object: lldb.SBValue):
-        self._sbvalue_object = sbvalue_object.GetNonSyntheticValue()
+    # gdb supports two forms for this constructor:
+    # - `Value(val)`, where `val` can be a Python value that gets converted to a
+    #   reasonable C type, or another gdb.Value, or a gdb.LazyString.
+    #   We extend this form so we can wrap an `lldb.SBValue` in a `gdb.Value`.
+    # - `Value(val, type)`, where `val` is a Python buffer object.
+    def __init__(
+            self,
+            # The two-argument form supports any object that implements the
+            # buffer protocol. Annotate it as `Any` for now.
+            # TODO(jgorbe): switch this to a suitable Union type that includes
+            # `collections.abc.Buffer` once our LLDB uses python >= 3.12. See
+            # https://peps.python.org/pep-0688/.
+            v: Any,
+            t: Optional[Type] = None,
+    ):
+        if t is None:
+            # Single-argument form.
+            if isinstance(v, lldb.SBValue):
+                self._sbvalue_object = v.GetNonSyntheticValue()
+            elif isinstance(v, Value):
+                self._sbvalue_object = v._sbvalue_object
+            elif isinstance(v, (int, float)):
+                self._sbvalue_object = _gdbvalue_from_number(v).sbvalue()
+            elif isinstance(v, (bool, str)):
+                raise NotImplementedError(
+                        "gdb.Value(%s) not supported yet by GALA" % type(v))
+            else:
+                raise TypeError("Could not convert Python object: %s" % v)
+        else:
+            # Two-argument form.
+            target = gala_get_current_target()
+            data = lldb.SBData()
+            err = lldb.SBError()
+            # `v` can be anything that implements the Python buffer protocol.
+            # Convert it to bytes so the lldb bindings accept it as a buffer.
+            data.SetDataWithOwnership(
+                    err, bytes(v), lldb.eByteOrderLittle, target.addr_size)
+            self._sbvalue_object = target.CreateValueFromData(
+                    'value', data, t.sbtype())
 
     def sbvalue(self) -> lldb.SBValue:
         return self._sbvalue_object
@@ -457,22 +511,6 @@ class Value(object):
             raise TypeError(
                 'Conversion of type %s to number is not supported.'%sbtype.name)
         return numval
-
-    def _gdbvalue_from_number(self, number: Union[int, float]) -> 'Value':
-        data = lldb.SBData()
-        if isinstance(number, int):
-            if number < 0:
-              data.SetDataFromSInt64Array([number])
-            else:
-              data.SetDataFromUInt64Array([number])
-            result_type = get_builtin_sbtype('long')
-        elif isinstance(number, float):
-            data.SetDataFromDoubleArray([number])
-            result_type = get_builtin_sbtype('double')
-        else:
-            raise TypeError('_gdbvalue_from_number requires a number.')
-        return Value(self._sbvalue_object.CreateValueFromData(
-            '', data, result_type))
 
     def _binary_op(self,
                    other: Union['Value', int, float],
@@ -560,7 +598,7 @@ class Value(object):
                 res = self._as_number() >> other_val
         else:
             raise RuntimeError('Unsupported or incorrect binary operation.')
-        return self._gdbvalue_from_number(res)
+        return _gdbvalue_from_number(res)
 
     def _cmp(self, other: Union['Value', int, float]) -> int:
         if (isinstance(other, int) or isinstance(other, float)):
@@ -771,7 +809,7 @@ class Value(object):
         value = self._as_number()
         if not isinstance(value, int):
             raise TypeError("Bad operand type for unary ~")
-        return self._gdbvalue_from_number(~value)
+        return _gdbvalue_from_number(~value)
 
     @property
     def type(self) -> Type:
