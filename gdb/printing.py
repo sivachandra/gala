@@ -116,8 +116,8 @@ def _make_lldb_summary_function(
             if pp:
                 try:
                     summary = str(pp.to_string())
-                except:
-                    summary = 'Error generating summary string.'
+                except Exception as e:
+                    summary = 'Error generating summary string: %s' % e
                 if (hasattr(pp, 'display_hint') and
                     pp.display_hint() == 'string'):
                     summary = '"%s"' % summary
