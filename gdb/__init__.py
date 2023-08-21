@@ -438,8 +438,8 @@ class Value(object):
             # The two-argument form supports any object that implements the
             # buffer protocol. Annotate it as `Any` for now.
             # TODO(jgorbe): switch this to a suitable Union type that includes
-            # `collections.abc.Buffer` once our LLDB uses python >= 3.12. See
-            # https://peps.python.org/pep-0688/.
+            # `collections.abc.Buffer` once Python 3.12 has been around for long
+            # enough. See https://peps.python.org/pep-0688/.
             v: Any,
             t: Optional[Type] = None,
     ):
