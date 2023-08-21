@@ -97,7 +97,6 @@ print("typedefed_struct_array[str] -> %d" % typedefed_struct_array["my_value"])
 
 # getitem on incorrect types
 one = gdb.parse_and_eval("1")
-member = gdb.parse_and_eval('"member"')
 try:
   print(one[0])
 except gdb.error as e:
@@ -114,6 +113,7 @@ try:
 except gdb.error as e:
   print("value(int)[str] -> gdb.error: %s" % e)
 
+member = gdb.parse_and_eval('"member"')
 try:
   print(one[member])
 except gdb.error as e:

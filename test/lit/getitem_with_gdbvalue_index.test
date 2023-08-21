@@ -70,5 +70,3 @@
 
 ; CHECK-NOPROCESS: value(int)[int] -> gdb.error
 ; CHECK-NOPROCESS: value(int)[value(int)] -> gdb.error
-; CHECK-NOPROCESS: value(int)[str] -> gdb.error
-; CHECK-NOPROCESS: value(int)[value(str)] -> gdb.error

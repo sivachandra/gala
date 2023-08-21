@@ -981,9 +981,9 @@ def selected_inferior() -> Inferior:
 def parse_and_eval(expr) -> Value:
     opts = lldb.SBExpressionOptions()
     sbvalue = gala_get_current_target().EvaluateExpression(expr, opts)
-    if sbvalue and sbvalue.IsValid():
+    if sbvalue and sbvalue.IsValid() and sbvalue.GetError().Success():
         return Value(sbvalue)
-    raise RuntimeError('Unable to evaluate "%s".', expr)
+    raise error('Unable to evaluate "%s": %s' % (expr, sbvalue.GetError()))
 
 
 def lookup_type(name, block=None) -> Type:

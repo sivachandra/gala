@@ -1,0 +1,4 @@
+RUN: %clangxx -g -o %t invalid_expr/test_program.cc
+RUN: %lldb -b -o 'script import invalid_expr' %t | FileCheck %s
+
+CHECK: gdb.error was raised.
