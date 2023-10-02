@@ -23,7 +23,7 @@ import re
 import sys
 import traceback
 from collections import defaultdict
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 
 # Type aliases for different lldb and gdb callable types.
@@ -147,7 +147,7 @@ def _set_current_target(method: Callable) -> Callable:
 
 
 def _named_sbvalue(
-        parent: lldb.SBValue, name: str, v: gdb.Value | int | str
+        parent: lldb.SBValue, name: str, v: Union[gdb.Value, int, str]
 ) -> lldb.SBValue:
     """Creates an SBValue equivalent to `v`, but with name `name`.
 
