@@ -224,7 +224,8 @@ def _make_child_provider_class(
                     self._children_iterator = self._pp.children()
                 except:
                     _print_exc(
-                        'Error calling "children" on a GDB pretty printer.')
+                        'Error calling "children" on the GDB pretty printer '
+                        'for value named "%s".' % self._sbvalue.GetName())
                     return
 
             try:
