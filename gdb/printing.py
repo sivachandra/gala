@@ -117,7 +117,8 @@ def _make_lldb_summary_function(
                 try:
                     summary = str(pp.to_string())
                 except Exception as e:
-                    summary = 'Error generating summary string: %s' % e
+                    summary = 'Error generating summary string: %s\n' % e
+                    summary += traceback.format_exc()
                 if (hasattr(pp, 'display_hint') and
                     pp.display_hint() == 'string'):
                     summary = '"%s"' % summary
@@ -237,11 +238,24 @@ def _make_child_provider_class(
                     self._children.append(next_child)
                     self._iter_count += 1
             except:
+                # If an error happens while generating children, we put all the
+                # information about the error in a synthetic child instead of
+                # dumping the error to the console. We do this because IDEs like
+                # to display uninitialized variables and console spam gets
+                # confusing for users. This way, each error appears next to the
+                # value that caused it and users don't think their debugger
+                # session has crashed.
+                #
+                # In order to do this we need our error message as a valid C++
+                # expression. We pack it into a raw string literal with a custom
+                # delimiter to avoid needing to deal with escaping.
+                error_str = ("Can't retrieve children. This is normal if the "
+                             "variable hasn't been initialized yet\n\n")
+                error_str += traceback.format_exc()
                 self._children = [
                     ("LLDB ERROR",
                      gdb.Value(self._sbvalue.CreateValueFromExpression(
-                         "","\"Can't retrieve children. This is normal if "
-                         "the variable hasn't been initialized yet\"")))
+                         "err", 'R"GALA_ERROR(%s)GALA_ERROR"' % error_str)))
                 ]
                 # Append the real non-synthetic children. This way the user can
                 # still inspect the underlying members in cases of memory
