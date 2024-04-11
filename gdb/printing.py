@@ -337,12 +337,6 @@ def _make_child_provider_class(
             return None
 
         @_set_current_target
-        def update(self) -> None:
-            self._children = []
-            self._children_iterator = None
-            self._iter_count = 0
-
-        @_set_current_target
         def has_children(self) -> bool:
             return hasattr(self._pp, 'children')
 
