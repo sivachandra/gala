@@ -245,9 +245,6 @@ def _make_child_provider_class(
                 # value that caused it and users don't think their debugger
                 # session has crashed.
                 #
-                # In order to do this we need our error message as a valid C++
-                # expression. We pack it into a raw string literal with a custom
-                # delimiter to avoid needing to deal with escaping.
                 self._captured_errors.append(
                     'Error retrieving children.\n%s' % traceback.format_exc())
                 # Append the real non-synthetic children. This way the user can
@@ -262,6 +259,12 @@ def _make_child_provider_class(
                     0,
                     (
                         'LLDB ERROR',
+                        # In order to do this we need our error message as a valid C++
+                        # expression. We pack it into a raw string literal with a custom
+                        # delimiter to avoid needing to deal with escaping.
+                        # In order to do this we need our error message as a valid C++
+                        # expression. We pack it into a raw string literal with a custom
+                        # delimiter to avoid needing to deal with escaping.
                         gdb.Value(
                             self._sbvalue.CreateValueFromExpression(
                                 'err', 'R"GALA_ERROR(%s)GALA_ERROR"' % error_str
