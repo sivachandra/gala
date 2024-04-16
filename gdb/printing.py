@@ -38,14 +38,6 @@ LldbInternalDict = Dict
 LldbChildProvider = Any
 GdbObjectFile = Any
 
-
-def _print_exc(err_msg: str):
-    """Prints the current exception with `err_msg`."""
-    print('<<< %s >>>' % err_msg)
-    traceback.print_exc()
-    print('<<< --- >>>')
-
-
 def _object_name(obj: Any) -> Optional[str]:
     """Returns a user-readable name for an object."""
     if hasattr(obj, 'name'):
@@ -201,6 +193,7 @@ def _make_child_provider_class(
             self._children = []
             self._children_iterator = None
             self._iter_count = 0
+            self._captured_errors = []
             self.find_pretty_printer()
 
         @_set_current_target
@@ -208,8 +201,9 @@ def _make_child_provider_class(
             try:
                 self._pp = make_printer_func(gdb.Value(self._sbvalue))
             except:
-                _print_exc(
-                    'Error calling into GDB printer "%s".' % make_printer_func)
+                self._captured_errors.append(
+                    'Error calling into GDB printer "%s".\n%s'
+                    % (make_printer_func, traceback.format_exc()))
                 return
             if not self._pp:
                 raise RuntimeError('Prettyprinter does not match given value.')
@@ -224,14 +218,19 @@ def _make_child_provider_class(
                 try:
                     self._children_iterator = self._pp.children()
                 except:
-                    _print_exc(
-                        'Error calling "children" on the GDB pretty printer '
-                        'for value named "%s".' % self._sbvalue.GetName())
+                    self._captured_errors.append(
+                        'Error calling "children" on the GDB pretty printer.\n%s'
+                        % (traceback.format_exc()))
                     return
 
             try:
                 while self._iter_count < max_count:
                     try:
+                        if not self._children_iterator:
+                            # Might not have a child iter because we got an
+                            # error previously.
+                            break;
+                        else:
                         next_child = next(self._children_iterator)
                     except StopIteration:
                         break
@@ -246,23 +245,32 @@ def _make_child_provider_class(
                 # value that caused it and users don't think their debugger
                 # session has crashed.
                 #
-                # In order to do this we need our error message as a valid C++
-                # expression. We pack it into a raw string literal with a custom
-                # delimiter to avoid needing to deal with escaping.
-                error_str = ("Can't retrieve children. This is normal if the "
-                             "variable hasn't been initialized yet\n\n")
-                error_str += traceback.format_exc()
-                self._children = [
-                    ("LLDB ERROR",
-                     gdb.Value(self._sbvalue.CreateValueFromExpression(
-                         "err", 'R"GALA_ERROR(%s)GALA_ERROR"' % error_str)))
-                ]
+                self._captured_errors.append(
+                    'Error retrieving children.\n%s' % traceback.format_exc())
                 # Append the real non-synthetic children. This way the user can
                 # still inspect the underlying members in cases of memory
                 # corruption, similar to not having a prettyprinter at all.
-                self._children += [
+                self._children = [
                     (c.GetName(), gdb.Value(c))
                     for c in self._sbvalue.GetNonSyntheticValue()]
+            # Prepend errors (as synthetic children) to the list of children.
+            for error_str in self._captured_errors:
+                self._children.insert(
+                    0,
+                    (
+                        'LLDB ERROR',
+                        # In order for the error to appear as a synthetic child,
+                        # we need to make it a valid C++ expression.
+                        # So we pack it into a raw string literal with a custom
+                        # delimiter to avoid needing to deal with escaping.
+                        gdb.Value(
+                            self._sbvalue.CreateValueFromExpression(
+                                'err', 'R"GALA_ERROR(%s)GALA_ERROR"' % error_str
+                            )
+                        ),
+                    ),
+                )
+            self._captured_errors.clear()
 
         @_set_current_target
         def _get_display_hint(self) -> str:
