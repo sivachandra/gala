@@ -231,7 +231,7 @@ def _make_child_provider_class(
                             # error previously.
                             break;
                         else:
-                        next_child = next(self._children_iterator)
+                            next_child = next(self._children_iterator)
                     except StopIteration:
                         break
                     self._children.append(next_child)
