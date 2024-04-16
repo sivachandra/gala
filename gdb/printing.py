@@ -259,11 +259,9 @@ def _make_child_provider_class(
                     0,
                     (
                         'LLDB ERROR',
-                        # In order to do this we need our error message as a valid C++
-                        # expression. We pack it into a raw string literal with a custom
-                        # delimiter to avoid needing to deal with escaping.
-                        # In order to do this we need our error message as a valid C++
-                        # expression. We pack it into a raw string literal with a custom
+                        # In order for the error to appear as a synthetic child,
+                        # we need to make it a valid C++ expression.
+                        # So we pack it into a raw string literal with a custom
                         # delimiter to avoid needing to deal with escaping.
                         gdb.Value(
                             self._sbvalue.CreateValueFromExpression(
