@@ -987,6 +987,8 @@ def parse_and_eval(expr) -> Value:
 
 
 def lookup_type(name, block=None) -> Type:
+    if name in BUILTIN_TYPE_NAME_TO_BASIC_TYPE:
+        return Type(get_builtin_sbtype(name))
     chunks = name.split('::')
     unscoped_name = chunks[-1]
     typelist = gala_get_current_target().FindTypes(unscoped_name)
@@ -1001,11 +1003,6 @@ def lookup_type(name, block=None) -> Type:
                 (name.startswith('::') and
                  canonical_sbtype.GetName() == name[2:])):
                 return Type(canonical_sbtype)
-    # FIXME: When building with `-funsigned-char`, lookups for `char` can fail
-    # because lldb will treat `char` as an alias of `unsigned char`. This is a
-    # bug in lldb, and this hack should be removed once it's fixed.
-    if name == 'char':
-        return lookup_type('unsigned char')
     raise error('Type "%s" not found in %d matches.' % (name, count))
 
 
