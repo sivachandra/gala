@@ -24,7 +24,7 @@ class TestStructPrinter:
     size = int(self.val["size"])
     i = 0
     while i < size:
-      print("yielding child %d" % i, file=sys.stderr)
+      print("yielding child %d" % i)
       yield "[%d]"%i, i
       i += 1
 
@@ -50,4 +50,4 @@ def __lldb_init_module(debugger, internal_dict):
   debugger.HandleCommand('settings set target.max-children-count 10')
   print("gdb.parameter('print elements'):", gdb.parameter('print elements'))
 
-  print("s = %s" % gdb.parse_and_eval('s'))
+  debugger.HandleCommand('p s')
