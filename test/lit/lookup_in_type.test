@@ -1,18 +1,8 @@
 RUN: %clangxx -g -o %t lookup_in_type/test_program.cc
-RUN: %lldb -b \
-RUN:       -o 'script import gala_compatibility' \
-RUN:       -o 'script Foo = gdb.lookup_type("Foo")' \
-RUN:       -o 'script print("Foo::Bar = ", gala_compatibility.get_nested_type(Foo, "Bar").name)' \
-RUN:       -o 'script gala_compatibility.get_nested_type(Foo, "Baz")' \
-RUN:       -o 'script print("Foo::bar = ", gala_compatibility.get_static_constexpr_value_from_type(Foo, "bar"))' \
-RUN:       -o 'script gala_compatibility.get_static_constexpr_value_from_type(Foo, "baz")' \
-RUN:       -o 'script gala_compatibility.get_static_constexpr_value_from_type(Foo, "mutable_bar")' \
-RUN:       %t | FileCheck %s
+RUN: %lldb -b -o "script import lookup_in_type" %t | FileCheck %s
 
-CHECK: (lldb) script import gala_compatibility
-
-CHECK: Foo::Bar = Foo::Bar
-CHECK: gdb.error: There is no type named Baz
-CHECK: Foo::bar = 47
-CHECK: gdb.error: There is no static field named baz
-CHECK: gdb.error: mutable_bar is not a constexpr field
+CHECK: Foo::Bar: Foo::Bar
+CHECK: Foo::Baz: There is no type named Baz
+CHECK: Foo::bar: 47
+CHECK: Foo::baz: There is no static field named baz
+CHECK: Foo::mutable_bar: mutable_bar is not a constexpr field
