@@ -280,6 +280,10 @@ class Type(object):
         return self._sbtype_object.GetName()
 
     @property
+    def alignof(self) -> int:
+        return self._sbtype_object.GetByteAlign()
+
+    @property
     def code(self) -> int:
         type_class = self._sbtype_object.GetTypeClass()
         type_code = TYPE_CLASS_TO_TYPE_CODE_MAP.get(type_class,

@@ -1,0 +1,4 @@
+; RUN: %clangxx -g -o %t type_alignof/test_program.cc
+; RUN: %lldb -b -o 'script import type_alignof' %t | FileCheck %s
+
+CHECK: alignof("OverAligned") = 128
