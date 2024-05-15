@@ -1,6 +1,14 @@
 ; RUN: %clangxx -g -o %t lookup_type/lookup_type.cc
 ; RUN: %lldb -b -o 'script import lookup_type' %t | FileCheck %s
-CHECK: t1.name = MyClass
-CHECK: t2.name = MyClass
-CHECK: lookup of non-existing type -> gdb.error
 
+CHECK: int => int
+CHECK: MyClass => MyClass
+CHECK: ::MyClass => MyClass
+CHECK: ns::ClassInNS => ns::ClassInNS
+CHECK: ::ns::ClassInNS => ns::ClassInNS
+CHECK: ns::MyClass => No type named ns::MyClass.
+CHECK: ::NonExistingType => No type named ::NonExistingType.
+
+CHECK: Templated<int>::InTemplate => Templated<int>::InTemplate
+CHECK: Templated<ns::ClassInNS>::InTemplate => Templated<ns::ClassInNS>::InTemplate
+CHECK: Templated<ns::ClassInNS>::MoreTemplates<ns::ClassInNS> => Templated<ns::ClassInNS>::MoreTemplates<ns::ClassInNS>
