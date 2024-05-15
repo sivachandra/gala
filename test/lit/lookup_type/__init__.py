@@ -1,12 +1,20 @@
 import gdb
 
-t1 = gdb.lookup_type("MyClass")
-print("t1.name = %s" % t1.name)
+def test(name):
+  try:
+    t = gdb.lookup_type(name)
+    print("%s => %s" % (name, t.name))
+  except gdb.error as e:
+    print("%s => %s" % (name, e))
 
-t2 = gdb.lookup_type("::MyClass")
-print("t2.name = %s" % t2.name)
+test("int")
+test("MyClass")
+test("::MyClass")
+test("ns::ClassInNS")
+test("::ns::ClassInNS")
+test("ns::MyClass")
+test("::NonExistingType")
 
-try:
-  gdb.lookup_type("::NonExistingType")
-except gdb.error as e:
-  print("lookup of non-existing type -> gdb.error: %s" % e)
+test("Templated<int>::InTemplate")
+test("Templated<ns::ClassInNS>::InTemplate")
+test("Templated<ns::ClassInNS>::MoreTemplates<ns::ClassInNS>")

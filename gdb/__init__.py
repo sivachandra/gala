@@ -993,21 +993,13 @@ def parse_and_eval(expr) -> Value:
 def lookup_type(name, block=None) -> Type:
     if name in BUILTIN_TYPE_NAME_TO_BASIC_TYPE:
         return Type(get_builtin_sbtype(name))
-    chunks = name.split('::')
-    unscoped_name = chunks[-1]
-    typelist = gala_get_current_target().FindTypes(unscoped_name)
-    count = typelist.GetSize()
-    for i in range(count):
-        t = typelist.GetTypeAtIndex(i)
-        if t.GetName() == name:
-            return Type(t)
-        else:
-            canonical_sbtype = t.GetCanonicalType()
-            if (canonical_sbtype.GetName() == name or
-                (name.startswith('::') and
-                 canonical_sbtype.GetName() == name[2:])):
-                return Type(canonical_sbtype)
-    raise error('Type "%s" not found in %d matches.' % (name, count))
+    # GDB lookups are always absolute, whereas lldb will return a type from
+    # within any context unless the name is absolute.
+    name_to_lookup = name if name.startswith('::') else '::' + name
+    t = gala_get_current_target().FindFirstType(name_to_lookup)
+    if not t:
+        raise error('No type named %s.' % name)
+    return Type(t)
 
 
 class Objfile:
