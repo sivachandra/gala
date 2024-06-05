@@ -402,9 +402,8 @@ def _get_child_member_with_name(
         # on __getitem__, but lldb doesn't so we have to do it here.
         for i in range(sbvalue.GetNumChildren()):
             child = sbvalue.GetChildAtIndex(i)
-            if (child.GetName() is None and
-                child.GetType().GetTypeClass() == lldb.eTypeClassUnion):
-                result = child.GetChildMemberWithName(name)
+            if child.GetType().IsAnonymousType():
+                result = _get_child_member_with_name(child, name)
                 if result.IsValid():
                     break
     return result

@@ -54,8 +54,10 @@ print("typedefed_struct[str] -> %d" % typedefed_struct["my_value"])
 struct_with_anonymous_union = gdb.parse_and_eval("struct_with_anonymous_union")
 print("struct[anonymous union member].base_member -> %d" %
       struct_with_anonymous_union["my_value"])
-print("struct[anonymous union member].anon_member -> %d" %
+print("struct[anonymous union member].struct_member -> %d" %
       struct_with_anonymous_union["d"])
+print("struct[anonymous union member].union_member -> %d" %
+      struct_with_anonymous_union["f"])
 
 # getitem on pointer to array/struct
 ptr_to_array = gdb.parse_and_eval("ptr_to_array")

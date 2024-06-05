@@ -1,72 +1,49 @@
 ; Check that __getitem__ works correctly with different index types.
 
 ; RUN: %clangxx -g -o %t getitem_with_gdbvalue_index/getitem_with_gdbvalue_index.cc
-; RUN: %lldb -b -o 'b main' -o 'r' -o 'script import getitem_with_gdbvalue_index' %t | FileCheck %s
+; RUN: %lldb -b -o 'b main' -o 'r' -o 'script import getitem_with_gdbvalue_index' %t | FileCheck %s --check-prefixes=PROCESS,BOTH
 
 ; Check that it also works without a live process.
-; RUN: %lldb -b -o 'script import getitem_with_gdbvalue_index' %t | FileCheck %s --check-prefix=CHECK-NOPROCESS
+; RUN: %lldb -b -o 'script import getitem_with_gdbvalue_index' %t | FileCheck %s --check-prefixes=BOTH
 
-; CHECK: array[int] -> 11
-; CHECK: array[Value(int)] -> 22
-; CHECK: array[Value(char)] -> 33
-; CHECK: array[Value(float)] -> 44
-; CHECK: array[Value(string)] -> gdb.error
-; CHECK: array[Value(enum)] -> 66
+; BOTH: array[int] -> 11
+; BOTH: array[Value(int)] -> 22
+; BOTH: array[Value(char)] -> 33
+; BOTH: array[Value(float)] -> 44
+; BOTH: array[Value(string)] -> gdb.error
+; BOTH: array[Value(enum)] -> 66
 
-; CHECK: struct hack: elements[1] -> 0
+; PROCESS: struct hack: elements[1] -> 0
+; Skipped without a process
 
-; CHECK: struct[str] -> 99
-; CHECK: struct[gdb.Field] -> 99
-; CHECK: struct[str/invalid] -> gdb.error
-; CHECK: struct[int] -> gdb.error
+; BOTH: struct[str] -> 99
+; BOTH: struct[gdb.Field] -> 99
+; BOTH: struct[str/invalid] -> gdb.error
+; BOTH: struct[int] -> gdb.error
 
-; CHECK: typedefed_struct[str] -> 777
 
-; CHECK: struct[anonymous union member].base_member -> 12
-; CHECK: struct[anonymous union member].anon_member -> 78
+; BOTH: typedefed_struct[str] -> 777
 
-; CHECK: ptr_to_array[Value(int)] -> 22
+; BOTH: struct[anonymous union member].base_member -> 12
+; BOTH: struct[anonymous union member].struct_member -> 78
+; BOTH: struct[anonymous union member].union_member -> 90
 
-; CHECK: Checking if out of bounds access raises an exception
-; CHECK: Value was created
-; CHECK: ptr_to_array[out of bounds] -> gdb.error
+; PROCESS: ptr_to_array[Value(int)] -> 22
+; PROCESS: Checking if out of bounds access raises an exception
+; PROCESS: Value was created
+; PROCESS: ptr_to_array[out of bounds] -> gdb.error
+; PROCESS: ptr_to_struct[str] -> 99
+; PROCESS: typedefed_ptr_to_struct[str] -> 42
 
-; CHECK: ptr_to_struct[str] -> 99
-; CHECK: typedefed_ptr_to_struct[str] -> 42
-; CHECK: struct_array[str] -> 1234
-; CHECK: typedefed_struct_array[str] -> 1234
-
-; CHECK: value(int)[int] -> gdb.error
-; CHECK: value(int)[value(int)] -> gdb.error
-; CHECK: value(int)[str] -> gdb.error
-; CHECK: value(int)[value(str)] -> gdb.error
-
-; CHECK-NOPROCESS: array[int] -> 11
-; CHECK-NOPROCESS: array[Value(int)] -> 22
-; CHECK-NOPROCESS: array[Value(char)] -> 33
-; CHECK-NOPROCESS: array[Value(float)] -> 44
-; CHECK-NOPROCESS: array[Value(string)] -> gdb.error
-; CHECK-NOPROCESS: array[Value(enum)] -> 66
-
-; Skip the "struct hack" check
-
-; CHECK-NOPROCESS: struct[str] -> 99
-; CHECK-NOPROCESS: struct[gdb.Field] -> 99
-; CHECK-NOPROCESS: struct[str/invalid] -> gdb.error
-; CHECK-NOPROCESS: struct[int] -> gdb.error
-
-; CHECK-NOPROCESS: typedefed_struct[str] -> 777
-
-; CHECK-NOPROCESS: struct[anonymous union member].base_member -> 12
-; CHECK-NOPROCESS: struct[anonymous union member].anon_member -> 78
-
-; Skip the pointer-to-array and pointer-to-struct cases from the main test for
+; Skip the pointer-to-array and pointer-to-struct cases without a process for
 ; now. When we get a pointer SBValue from SBTarget.EvaluateExpression and there
 ; is no active process, lldb can't dereference it because the SBValue contains
 ; a file address.
 
-; CHECK-NOPROCESS: struct_array[str] -> 1234
-; CHECK-NOPROCESS: typedefed_struct_array[str] -> 1234
+; BOTH: struct_array[str] -> 1234
+; BOTH: typedefed_struct_array[str] -> 1234
 
-; CHECK-NOPROCESS: value(int)[int] -> gdb.error
-; CHECK-NOPROCESS: value(int)[value(int)] -> gdb.error
+; BOTH: value(int)[int] -> gdb.error
+; BOTH: value(int)[value(int)] -> gdb.error
+; BOTH: value(int)[str] -> gdb.error
+; PROCESS: value(int)[value(str)] -> gdb.error

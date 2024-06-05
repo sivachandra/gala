@@ -54,14 +54,18 @@ TypedefedStruct typedefed_struct = {777};
 struct StructWithAnonymousUnion : public MyStruct {
   int a;
   int b;
-  union {
+  struct {
     int c;
     int d;
+    union {
+      int e;
+      int f;
+    };
   };
 };
 
 StructWithAnonymousUnion struct_with_anonymous_union = {
-    {.my_value = 12}, 34, 56, {.d = 78},
+    {.my_value = 12}, 34, 56, {.d = 78, .f = 90},
 };
 
 // Pointer to struct, but typedef'd.
