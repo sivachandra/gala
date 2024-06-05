@@ -194,12 +194,16 @@ def _make_child_provider_class(
             self._children_iterator = None
             self._iter_count = 0
             self._captured_errors = []
+            self._child_coeff = 1
             self.find_pretty_printer()
 
         @_set_current_target
         def find_pretty_printer(self):
             try:
                 self._pp = make_printer_func(gdb.Value(self._sbvalue))
+                if self._get_display_hint() == 'map':
+                    # For maps two gdb children count as one lldb child
+                    self._child_coeff = 2
             except:
                 self._captured_errors.append(
                     'Error calling into GDB printer "%s".\n%s'
@@ -279,6 +283,10 @@ def _make_child_provider_class(
 
         @_set_current_target
         def num_children(self, max_count: int) -> int:
+            # See if the prettyprinter supports our num_children extension.
+            if hasattr(self._pp, 'num_children'):
+                return self._pp.num_children(max_count * self._child_coeff) // self._child_coeff
+
             # gdb prettyprinters don't directly compute the number of children.
             # They expose a `children` iterator function instead, and it will
             # be called at most as many times as specified by `set print
@@ -301,12 +309,8 @@ def _make_child_provider_class(
             if print_elements is not None:
               max_count = min(max_count, print_elements + 1)
 
-            if self._get_display_hint() == 'map':
-                self._get_children(2 * max_count)
-                return min(len(self._children) // 2, max_count)
-            else:
-                self._get_children(max_count)
-                return min(len(self._children), max_count)
+            self._get_children(max_count * self._child_coeff)
+            return len(self._children) // self._child_coeff
 
         @_set_current_target
         def get_child_index(self, name: str) -> int:
@@ -319,13 +323,13 @@ def _make_child_provider_class(
 
         @_set_current_target
         def get_child_at_index(self, index: int) -> Optional[lldb.SBValue]:
+            self._get_children((index + 1) * self._child_coeff)
             # lldb-vscode currently relies on the fact that passing an invalid
             # index to SBValue.GetChildAtIndex "works" (it returns a non-valid
             # SBValue). Asserting here causes scary error messages in the log,
             # so just return None for compatibility.
-            if self._get_display_hint() == 'map':
-                self._get_children(2 * (index + 1))
-                if index < (len(self._children) / 2):
+            if index < (len(self._children) // self._child_coeff):
+                if self._get_display_hint() == 'map':
                     key = self._children[index * 2][1]
                     val = self._children[index * 2 + 1][1]
                     if isinstance(key, gdb.Value):
@@ -337,9 +341,7 @@ def _make_child_provider_class(
                     else:
                         key_str = str(key)
                     return _named_sbvalue(self._sbvalue, '[%s]' % key_str, val)
-            else:
-                self._get_children(index + 1)
-                if index < len(self._children):
+                else:
                     c = self._children[index]
                     return _named_sbvalue(self._sbvalue, c[0], c[1])
             return None

@@ -1,0 +1,20 @@
+Test our num_children pretty printer extension.
+
+RUN: %clangxx -g -o %t num_children/test_program.cc
+RUN: %lldb %t -b \
+RUN:       -o 'settings set target.max-children-count 142' \
+RUN:       -o 'script import num_children' \
+RUN:       -o 'script print("num_children = ", lldb.target.FindFirstGlobalVariable("s").GetNumChildren(47))' \
+RUN:       -o 'script print("MAX_MAX_COUNT = ", num_children.MyStructPrinter.MAX_MAX_COUNT)' \
+RUN:       -o 'target variable s' \
+RUN:       -o 'script print("MAX_MAX_COUNT = ", num_children.MyStructPrinter.MAX_MAX_COUNT)' \
+RUN:       | FileCheck %s
+
+CHECK: num_children = 2
+CHECK: MAX_MAX_COUNT = 94
+CHECK: (MyStruct) s = A pretty MyStruct {
+CHECK-NEXT:  [key0] = "val0"
+CHECK-NEXT:  [key1] = "val1"
+CHECK-NEXT: }
+# 2 * (142 + 1)
+CHECK: MAX_MAX_COUNT = 286
