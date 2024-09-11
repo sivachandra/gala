@@ -640,8 +640,12 @@ class Value(object):
         if type_flags & lldb.eTypeIsPointer:
             return "0x%x" % self._as_number()
 
-        if (t.GetTypeClass() == lldb.eTypeClassClass):
-            return str(self._sbvalue_object.GetSyntheticValue())
+        # Check for synthetic children.
+        if (t.GetTypeClass() == lldb.eTypeClassStruct):
+            valstr = str(self._sbvalue_object.GetSyntheticValue())
+            if (valstr != "No value" and
+                valstr.find("$1") == -1):
+                return valstr
         valstr = self._sbvalue_object.GetSummary()
         if not valstr:
             valstr = self._sbvalue_object.GetValue()
