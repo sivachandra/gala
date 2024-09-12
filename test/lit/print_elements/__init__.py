@@ -34,7 +34,7 @@ def __lldb_init_module(debugger, internal_dict):
   gdb.printing.register_pretty_printer(gdb.current_objfile(), printer)
 
   # lldb treats all negative values here as 'unlimited'.
-  # gdb.parameter('print elements') returns None in this case.
+  # gdb.parameter('print elements') returns 256 in this case.
   debugger.HandleCommand('settings set -- target.max-children-count -99')
   print("gdb.parameter('print elements'):", gdb.parameter('print elements'))
 
@@ -51,3 +51,5 @@ def __lldb_init_module(debugger, internal_dict):
   print("gdb.parameter('print elements'):", gdb.parameter('print elements'))
 
   debugger.HandleCommand('p s')
+
+  debugger.HandleCommand("script print(gdb.parse_and_eval('s'))")
