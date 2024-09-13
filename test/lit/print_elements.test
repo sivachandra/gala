@@ -7,7 +7,6 @@ RUN: %lldb -b -o 'command script import print_elements' %t | FileCheck %s
 Check target.max-children-count values are correctly translated to "print
 elements" values.
 
-CHECK: gdb.parameter('print elements'): None
 CHECK: gdb.parameter('print elements'): 0
 CHECK: gdb.parameter('print elements'): 10
 
@@ -19,4 +18,8 @@ In this case, for 'set print elements 10' we would print children 0-9 and also
 yield child 10. So check that we don't yield 11.
 
 CHECK: yielding child 10
+CHECK-NOT: yielding child 11
+
+CHECK: yielding child 10
+CHECK: A TestStruct of size 100
 CHECK-NOT: yielding child 11
