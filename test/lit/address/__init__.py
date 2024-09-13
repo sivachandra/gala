@@ -28,16 +28,14 @@ print("ref.type = %s" % ref.type)
 print("ref.address = %x" % ref.address)
 
 class MyStructPrinter:
-  """Reads the size member and emits as many synthetic children.
-
-  This gives us an easy way to test `set print elements`.
-  """
-
   def __init__(self, val):
     self.val = val
 
   def to_string(self):
     return "pretty MyStruct"
+
+  def children(self):
+    yield "pretty_x", self.val["x"]
 
 printer = gdb.printing.RegexpCollectionPrettyPrinter("my_struct_printer")
 printer.add_printer("my_struct_printer", "^MyStruct$", MyStructPrinter)

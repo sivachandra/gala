@@ -9,9 +9,11 @@ CHECK: ref.address = [[SADDR]]
 
 Check that when we have a prettyprinter, address still works (i.e. we don't
 accidentally end up with a synthetic value from the prettyprinter).
-CHECK: Pretty s = pretty MyStruct
+CHECK: Pretty s ={{.*}}pretty MyStruct
+CHECK: pretty_x
 CHECK: s.address = [[SADDR]]
 
 Finally, check that ref is prettyprinted and taking its address still works.
-CHECK: Pretty ref = pretty MyStruct
+CHECK: Pretty ref ={{.*}}pretty MyStruct
+CHECK: pretty_x
 CHECK: ref.address = [[SADDR]]

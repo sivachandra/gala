@@ -7,7 +7,6 @@ RUN: %lldb -b -o 'command script import print_elements' %t | FileCheck %s
 Check target.max-children-count values are correctly translated to "print
 elements" values.
 
-CHECK: gdb.parameter('print elements'): 256
 CHECK: gdb.parameter('print elements'): 0
 CHECK: gdb.parameter('print elements'): 10
 

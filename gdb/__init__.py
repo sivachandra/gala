@@ -641,11 +641,15 @@ class Value(object):
             return "0x%x" % self._as_number()
 
         # Check for synthetic children.
-        if (t.GetTypeClass() == lldb.eTypeClassStruct):
-            valstr = str(self._sbvalue_object.GetSyntheticValue())
-            if (valstr != "No value" and
-                valstr.find("$1") == -1):
-                return valstr
+        if t.GetTypeClass() == lldb.eTypeClassStruct or (
+            t.GetTypeClass() == lldb.eTypeClassReference and
+              t.GetDereferencedType().GetTypeClass() == lldb.eTypeClassStruct):
+            if t.GetTypeClass() == lldb.eTypeClassReference:
+                nsv = self._sbvalue_object.Dereference().GetSyntheticValue()
+            else:
+                nsv = self._sbvalue_object.GetSyntheticValue()
+            if (nsv.IsValid()):
+                return str(nsv)
         valstr = self._sbvalue_object.GetSummary()
         if not valstr:
             valstr = self._sbvalue_object.GetValue()
@@ -955,12 +959,7 @@ def parameter(s: str) -> Any:
     # and 'target.max-string-summary-length', but max-children-count seems like
     # a closer match.
     if s == "print elements":
-        max_children_count = int(_GetSetting('target.max-children-count'))
-        # lldb treats all negative values as unlimited.
-        if max_children_count < 0:
-          return None
-        else:
-          return max_children_count
+        return int(_GetSetting('target.max-children-count'))
     return None
 
 
