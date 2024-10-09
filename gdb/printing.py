@@ -25,6 +25,8 @@ import traceback
 from collections import defaultdict
 from typing import Any, Callable, Dict, List, Optional, Union
 
+# If true, add some output for debugging
+DEBUG_ENABLED = False
 
 # Type aliases for different lldb and gdb callable types.
 GdbMakePrinterFunc = Callable[[gdb.Value], 'PrettyPrinter']
@@ -110,7 +112,8 @@ def _make_lldb_summary_function(
                     summary = str(pp.to_string())
                 except Exception as e:
                     summary = 'Error generating summary string: %s\n' % e
-                    summary += traceback.format_exc()
+                    if DEBUG_ENABLED:
+                      summary += traceback.format_exc()
                 if (hasattr(pp, 'display_hint') and
                     pp.display_hint() == 'string'):
                     summary = '"%s"' % summary
