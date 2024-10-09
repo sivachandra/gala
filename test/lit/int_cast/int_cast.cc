@@ -8,7 +8,7 @@ struct Numbers {
   uint16_t s1, s2;
 };
 
-Numbers numbers = {1, 2, 3, 4, 5, 6};
+Numbers my_numbers = {1, 2, 3, 4, 5, 6};
 
 int main() {
   return 0;
