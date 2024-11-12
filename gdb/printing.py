@@ -264,9 +264,9 @@ def _make_child_provider_class(
             byte_order = self._sbvalue.GetTarget().GetByteOrder()
             address_byte_size = self._sbvalue.GetTarget().GetAddressByteSize()
             for error_str in self._captured_errors:
+                error_str = 'GALA_ERROR(%s)GALA_ERROR' % error_str
                 data = lldb.SBData.CreateDataFromCString(
-                    byte_order, address_byte_size,
-                    'GALA_ERROR(%s)GALA_ERROR' % error_str)
+                    byte_order, address_byte_size, error_str)
                 data_type = self._sbvalue.GetTarget().GetBasicType(
                     lldb.eBasicTypeChar).GetArrayType(len(error_str))
                 self._children.insert(
