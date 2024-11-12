@@ -261,20 +261,26 @@ def _make_child_provider_class(
                     (c.GetName(), gdb.Value(c))
                     for c in self._sbvalue.GetNonSyntheticValue()]
             # Prepend errors (as synthetic children) to the list of children.
+            byte_order = self._sbvalue.GetTarget().GetByteOrder()
+            address_byte_size = self._sbvalue.GetTarget().GetAddressByteSize()
             for error_str in self._captured_errors:
+                data = lldb.SBData.CreateDataFromCString(
+                    byte_order, address_byte_size,
+                    'GALA_ERROR(%s)GALA_ERROR' % error_str)
+                data_type = self._sbvalue.GetTarget().GetBasicType(
+                    lldb.eBasicTypeChar).GetArrayType(len(error_str))
                 self._children.insert(
                     0,
                     (
                         'LLDB ERROR',
                         # In order for the error to appear as a synthetic child,
-                        # we need to make it a valid C++ expression.
+                        # we need to create a value from it.
                         # So we pack it into a raw string literal with a custom
                         # delimiter to avoid needing to deal with escaping.
                         gdb.Value(
-                            self._sbvalue.CreateValueFromExpression(
-                                'err', 'R"GALA_ERROR(%s)GALA_ERROR"' % error_str
-                            )
-                        ),
+                            self._sbvalue.CreateValueFromData(
+                                'err', data, data_type)
+                        )
                     ),
                 )
             self._captured_errors.clear()
