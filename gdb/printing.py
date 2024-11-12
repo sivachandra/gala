@@ -264,7 +264,6 @@ def _make_child_provider_class(
             byte_order = self._sbvalue.GetTarget().GetByteOrder()
             address_byte_size = self._sbvalue.GetTarget().GetAddressByteSize()
             for error_str in self._captured_errors:
-                error_str = 'GALA_ERROR(%s)GALA_ERROR' % error_str
                 data = lldb.SBData.CreateDataFromCString(
                     byte_order, address_byte_size, error_str)
                 data_type = self._sbvalue.GetTarget().GetBasicType(
@@ -275,8 +274,6 @@ def _make_child_provider_class(
                         'LLDB ERROR',
                         # In order for the error to appear as a synthetic child,
                         # we need to create a value from it.
-                        # So we pack it into a raw string literal with a custom
-                        # delimiter to avoid needing to deal with escaping.
                         gdb.Value(
                             self._sbvalue.CreateValueFromData(
                                 'err', data, data_type)
