@@ -264,6 +264,7 @@ def _make_child_provider_class(
             byte_order = self._sbvalue.GetTarget().GetByteOrder()
             address_byte_size = self._sbvalue.GetTarget().GetAddressByteSize()
             for error_str in self._captured_errors:
+                error_str += '\0'
                 data = lldb.SBData.CreateDataFromCString(
                     byte_order, address_byte_size, error_str)
                 data_type = self._sbvalue.GetTarget().GetBasicType(
