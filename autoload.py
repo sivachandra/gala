@@ -29,7 +29,7 @@ loaded_scripts = {}
 # dictionary is used to avoid loading the same module for the same debugger
 # instance twice.
 modules_processed = {}
-modules_loaded_callbacks = []
+modules_loaded_callbacks = {}
 
 def debug_print(*args, **kwargs) -> None:
   if DEBUG_ENABLED:
@@ -37,7 +37,7 @@ def debug_print(*args, **kwargs) -> None:
 
 
 def register_modules_loaded_callback(
-    callback: Callable[[lldb.SBEvent], None]) -> None:
+    debugger_id: int, callback: Callable[[lldb.SBEvent], None]) -> None:
   """Registers a function to be called when lldb loads a new module.
 
   lldb currently doesn't allow multiple listeners for the same event. GALA's
@@ -47,7 +47,7 @@ def register_modules_loaded_callback(
   Args:
     callback: a function that takes a lldb.SBEvent object.
   """
-  modules_loaded_callbacks.append(callback)
+  modules_loaded_callbacks.setdefault(debugger_id, []).append(callback)
 
 
 class LLDBListenerThread(Thread):
@@ -186,8 +186,9 @@ class LLDBListenerThread(Thread):
           section = module.FindSection(".debug_gala_lldb_scripts")
           if section.IsValid():
             self.process_gala_lldb_scripts_section(section)
-        for callback in modules_loaded_callbacks:
-          callback(event)
+        if self.debugger_id in modules_loaded_callbacks:
+          for callback in modules_loaded_callbacks[self.debugger_id]:
+            callback(event)
 
 
 def initialize(debugger: lldb.SBDebugger,
