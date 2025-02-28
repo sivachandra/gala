@@ -21,13 +21,15 @@ SECTION_SCRIPT_ID_SCHEME_TEXT = 6
 SCRIPT_TYPE_GDB = "gdb"
 SCRIPT_TYPE_LLDB = "lldb"
 
-# gdb uses the script name to avoid running the same script twice. This set
-# allows us to do the same.
-loaded_scripts = set()
-# Sometimes lldb will give us the same module in multiple events. We use this
-# set to deduplicate them.
-modules_processed = set()
-modules_loaded_callbacks = []
+# gdb uses the script name to avoid running the same script twice. This
+# dictionary is used to avoid loading the same script for the same debugger
+# instance twice.
+loaded_scripts = {}
+# Sometimes lldb will give us the same module in multiple events. This
+# dictionary is used to avoid loading the same module for the same debugger
+# instance twice.
+modules_processed = {}
+modules_loaded_callbacks = {}
 
 def debug_print(*args, **kwargs) -> None:
   if DEBUG_ENABLED:
@@ -35,7 +37,7 @@ def debug_print(*args, **kwargs) -> None:
 
 
 def register_modules_loaded_callback(
-    callback: Callable[[lldb.SBEvent], None]) -> None:
+    debugger_id: int, callback: Callable[[lldb.SBEvent], None]) -> None:
   """Registers a function to be called when lldb loads a new module.
 
   lldb currently doesn't allow multiple listeners for the same event. GALA's
@@ -45,7 +47,7 @@ def register_modules_loaded_callback(
   Args:
     callback: a function that takes a lldb.SBEvent object.
   """
-  modules_loaded_callbacks.append(callback)
+  modules_loaded_callbacks.setdefault(debugger_id, []).append(callback)
 
 
 class LLDBListenerThread(Thread):
@@ -65,6 +67,9 @@ class LLDBListenerThread(Thread):
         lldb.SBTarget.eBroadcastBitModulesLoaded)
     self.script_base_dir = script_base_dir
     self.excluded_patterns = excluded_patterns
+    
+    loaded_scripts[self.debugger_id] = set()
+    modules_processed[self.debugger_id] = set()
 
     self.total_scripts_run = 0  # For debug logging.
 
@@ -86,7 +91,7 @@ class LLDBListenerThread(Thread):
                   (path, resolved_path, self.total_scripts_run))
 
   def run_script_code(self, file_name: str, script_code: str) -> None:
-    loaded_scripts.add(file_name)
+    loaded_scripts[self.debugger_id].add(file_name)
     try:
       exec(script_code, {__name__: "__main__", __file__: file_name})
       self.log_loaded_script(file_name, "embedded")
@@ -99,7 +104,7 @@ class LLDBListenerThread(Thread):
       print(traceback.format_exc(), file=sys.stderr)
 
   def run_script_from_file(self, script_path: str, script_type: str) -> None:
-    loaded_scripts.add(script_path)
+    loaded_scripts[self.debugger_id].add(script_path)
     try:
       # Make script_path absolute.
       full_path = os.path.join(self.script_base_dir, script_path)
@@ -130,13 +135,13 @@ class LLDBListenerThread(Thread):
       # skip the whole entry: type (1 byte) + string + null terminator (1 byte).
       current_offset += len(entry_string) + 2
       if (entry_type == SECTION_SCRIPT_ID_PYTHON_FILE and
-          entry_string not in loaded_scripts and
+          entry_string not in loaded_scripts[self.debugger_id] and
           not self.matches_exclusion_list(entry_string)):
         self.run_script_from_file(entry_string, SCRIPT_TYPE_GDB)
       elif entry_type == SECTION_SCRIPT_ID_PYTHON_TEXT:
         newline_index = entry_string.find('\n')
         file_name = entry_string[:newline_index]
-        if (file_name not in loaded_scripts and
+        if (file_name not in loaded_scripts[self.debugger_id] and
             not self.matches_exclusion_list(file_name)):
           script_code = entry_string[newline_index + 1:]
           self.run_script_code(file_name, script_code)
@@ -154,7 +159,7 @@ class LLDBListenerThread(Thread):
       # skip the whole entry: type (1 byte) + string + null terminator (1 byte).
       current_offset += len(entry_string) + 2
       if (entry_type == SECTION_SCRIPT_ID_PYTHON_FILE and
-          entry_string not in loaded_scripts and
+          entry_string not in loaded_scripts[self.debugger_id] and
           not self.matches_exclusion_list(entry_string)):
         self.run_script_from_file(entry_string, SCRIPT_TYPE_LLDB)
     debug_print("finished processing .debug_gala_lldb_scripts_section")
@@ -167,10 +172,10 @@ class LLDBListenerThread(Thread):
         debug_print("%d modules loaded" % num_modules)
         for i in range(num_modules):
           module = lldb.SBTarget.GetModuleAtIndexFromEvent(i, event)
-          if str(module) in modules_processed:
+          if str(module) in modules_processed[self.debugger_id]:
             debug_print("duplicate module %s" % module)
             continue
-          modules_processed.add(str(module))
+          modules_processed[self.debugger_id].add(str(module))
           section = module.FindSection(".debug_gdb_scripts")
           if section.IsValid():
             self.process_gdb_scripts_section(section)
@@ -181,8 +186,9 @@ class LLDBListenerThread(Thread):
           section = module.FindSection(".debug_gala_lldb_scripts")
           if section.IsValid():
             self.process_gala_lldb_scripts_section(section)
-        for callback in modules_loaded_callbacks:
-          callback(event)
+        if self.debugger_id in modules_loaded_callbacks:
+          for callback in modules_loaded_callbacks[self.debugger_id]:
+            callback(event)
 
 
 def initialize(debugger: lldb.SBDebugger,
